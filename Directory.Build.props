@@ -1,0 +1,16 @@
+<Project>
+
+  <!-- exe のプロパティダイアログとタスクマネージャに出る情報。
+       未署名で配る以上、せめて発行元と版が空欄でない状態にしておく。
+       リリース時は -p:Version=x.y.z で上書きする (CI はタグから渡す) -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Product>Mendako</Product>
+    <Company>izugch73</Company>
+    <Authors>izugch73</Authors>
+    <Copyright>Copyright (c) 2026 izugch73</Copyright>
+    <RepositoryUrl>https://github.com/izugch73/mendako</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>

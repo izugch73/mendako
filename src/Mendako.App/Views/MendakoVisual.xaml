@@ -1,0 +1,27 @@
+<UserControl x:Class="Mendako.App.Views.MendakoVisual"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="160"
+             Height="150"
+             Background="{x:Null}"
+             IsHitTestVisible="False"
+             RenderOptions.BitmapScalingMode="NearestNeighbor"
+             RenderOptions.EdgeMode="Aliased"
+             UseLayoutRounding="True"
+             SnapsToDevicePixels="True">
+
+    <!--
+        ドット絵は実行時に MendakoSprites がビットマップへ展開する。
+        NearestNeighbor を指定しないと拡大時にぼやけてドット絵にならない。
+
+        IsHitTestVisible を False にしているのは、Image が透明ピクセルを含む
+        矩形全体でヒットしてしまうため。あたり判定は PetWindow から
+        HitTestSprite() を呼んでドットのアルファで判定する。
+    -->
+
+    <Canvas x:Name="Stage" Width="160" Height="150" Background="{x:Null}">
+        <Image x:Name="BodyImage" />
+        <Image x:Name="SleepMarkImage" Visibility="Collapsed" />
+        <Image x:Name="HeartImage" Visibility="Collapsed" />
+    </Canvas>
+</UserControl>

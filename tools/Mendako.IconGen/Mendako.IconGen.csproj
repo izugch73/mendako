@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- ビルド時に走らせる道具なので、WPF にも System.Drawing にも依存させない。
+         .ico も PNG も自前で書き出すため、NuGet 参照はゼロ -->
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>Mendako.IconGen</RootNamespace>
+    <!-- アプリ本体の配布物ではないので、バージョン情報の継承だけ受けて publish はしない -->
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+</Project>

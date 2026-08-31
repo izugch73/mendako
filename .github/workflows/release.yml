@@ -1,0 +1,52 @@
+name: release
+
+# タグを打つとビルドして Release に zip を貼る。
+# タグ名 v1.2.3 のうち v を落としたものが exe のバージョンになる。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: test
+        run: dotnet test tests/Mendako.Core.Tests/Mendako.Core.Tests.csproj -c Release
+
+      - name: publish
+        id: publish
+        shell: pwsh
+        run: |
+          $version = '${{ github.ref_name }}' -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { $version = '0.0.0' }
+          dotnet publish src/Mendako.App/Mendako.App.csproj `
+            -p:PublishProfile=win-x64 `
+            -p:Version=$version `
+            -o publish
+          # exe を直接置くとブラウザのダウンロード警告を踏みやすいので zip で配る
+          Compress-Archive -Path publish/Mendako.exe -DestinationPath "Mendako-$version-win-x64.zip"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create '${{ github.ref_name }}' "Mendako-${{ steps.publish.outputs.version }}-win-x64.zip" --generate-notes
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mendako-${{ steps.publish.outputs.version }}-win-x64
+          path: Mendako-*.zip

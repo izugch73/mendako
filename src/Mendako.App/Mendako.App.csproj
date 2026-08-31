@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- タスクトレイの NotifyIcon が WPF にないので WinForms も併用する -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WPF と WinForms の implicit usings は Application / Point / Brush などが衝突するため無効化し、
+         必要な using を明示する -->
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Mendako</AssemblyName>
+    <RootNamespace>Mendako.App</RootNamespace>
+    <!-- タスクマネージャの「名前」列と exe のプロパティに出る -->
+    <AssemblyTitle>メンダコ</AssemblyTitle>
+    <Description>タスクバーの上に住みつくメンダコを育てる常駐アプリ。</Description>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PlatformTarget>x64</PlatformTarget>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- WFAC010 は WinForms 向けの警告。UI は WPF なので、PerMonitorV2 はマニフェストで宣言するのが正しい -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mendako.Core\Mendako.Core.csproj" />
+    <ProjectReference Include="..\Mendako.Platform\Mendako.Platform.csproj" />
+  </ItemGroup>
+
+  <!-- exe のアイコンはドット絵からビルド時に焼く。
+       リポジトリにバイナリを置かないという方針を .ico でも崩さないため、
+       生成先は gitignore 済みの obj/ にする。
+       IntermediateOutputPath ではなく obj/ 直下なのは、構成や RID ごとに焼き直さないため -->
+  <PropertyGroup>
+    <MendakoIconPath>$(MSBuildThisFileDirectory)obj\mendako.ico</MendakoIconPath>
+    <MendakoIconGenProject>$(MSBuildThisFileDirectory)..\..\tools\Mendako.IconGen\Mendako.IconGen.csproj</MendakoIconGenProject>
+    <ApplicationIcon>$(MendakoIconPath)</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MendakoIconSource Include="$(MSBuildThisFileDirectory)..\..\tools\Mendako.IconGen\*.cs" />
+    <MendakoIconSource Include="$(MendakoIconGenProject)" />
+  </ItemGroup>
+
+  <!-- WPF は XAML 用の一時プロジェクト (*_wpftmp) でもう一度コンパイルするので、
+       どちらの経路でも .ico が揃っているよう BeforeBuild と CoreCompile の両方に差し込む。
+       Inputs/Outputs があるので、ドット絵を触らないかぎり 2 回目は素通りする -->
+  <Target Name="GenerateApplicationIcon"
+          BeforeTargets="BeforeBuild;CoreCompile"
+          Inputs="@(MendakoIconSource)"
+          Outputs="$(MendakoIconPath)">
+    <!-- UseUtf8Encoding を指定しないと、生成ツールの日本語の出力がビルドログで文字化けする -->
+    <Exec Command="dotnet run --project &quot;$(MendakoIconGenProject)&quot; --configuration Release --verbosity quiet -- &quot;$(MendakoIconPath)&quot;"
+          UseUtf8Encoding="Always" />
+  </Target>
+
+</Project>

@@ -1,0 +1,50 @@
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-32B4-A1A8-D0158F394A0C}") = "Mendako.Core", "src\Mendako.Core\Mendako.Core.csproj", "{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1101}"
+EndProject
+Project("{9A19103F-16F7-32B4-A1A8-D0158F394A0C}") = "Mendako.Platform", "src\Mendako.Platform\Mendako.Platform.csproj", "{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1102}"
+EndProject
+Project("{9A19103F-16F7-32B4-A1A8-D0158F394A0C}") = "Mendako.App", "src\Mendako.App\Mendako.App.csproj", "{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1103}"
+EndProject
+Project("{9A19103F-16F7-32B4-A1A8-D0158F394A0C}") = "Mendako.Core.Tests", "tests\Mendako.Core.Tests\Mendako.Core.Tests.csproj", "{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1104}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{FF177A10-7830-4AF8-9D1D-65E054D85EC7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mendako.IconGen", "tools\Mendako.IconGen\Mendako.IconGen.csproj", "{0397B3A0-355E-4DED-82A8-835C1B01598A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1101}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1101}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1101}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1101}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1102}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1102}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1102}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1102}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1103}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1103}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1103}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1103}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1104}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1104}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1104}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6F1A6C41-9A0E-4C7E-9D31-0E2B7C5A1104}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0397B3A0-355E-4DED-82A8-835C1B01598A} = {FF177A10-7830-4AF8-9D1D-65E054D85EC7}
+	EndGlobalSection
+EndGlobal
