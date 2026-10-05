@@ -25,6 +25,17 @@ public enum PetAction
     /// <summary>つつかれてびっくりした。</summary>
     Startle,
 
+    // --- つまみ上げ (終わりはウィンドウ側が決める) ---
+
+    /// <summary>つままれて宙に浮いている。</summary>
+    Held,
+
+    /// <summary>放されて、ふわふわ降りている。</summary>
+    Fall,
+
+    /// <summary>着地してぺたんとなった。</summary>
+    Land,
+
     // --- しぐさ (ひとりでにやる) ---
 
     /// <summary>きょろきょろ見回す。</summary>

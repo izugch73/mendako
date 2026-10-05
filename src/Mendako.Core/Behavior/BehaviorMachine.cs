@@ -71,6 +71,19 @@ public sealed class BehaviorMachine
         return true;
     }
 
+    /// <summary>
+    /// 実行中の動きを切り上げる。別の動きに替わっていれば何もしない。
+    /// つかまれている・落ちている、のように終わりを外から決める動きに使う。
+    /// </summary>
+    public void Stop(PetAction action)
+    {
+        if (CurrentAction == action)
+        {
+            CurrentAction = PetAction.None;
+            _actionEndsAt = _time;
+        }
+    }
+
     /// <summary>指定秒数だけ時間を進め、そのフレームのコマを返す。</summary>
     public PetPose Advance(double deltaSeconds, MendakoState state, BehaviorInput input = default)
     {
@@ -107,6 +120,9 @@ public sealed class BehaviorMachine
             PetAction.Refuse => RefusingPose(),
             PetAction.Evolve => EvolvingPose(),
             PetAction.Startle => StartledPose(),
+            PetAction.Held => HeldPose(),
+            PetAction.Fall => FallingPose(),
+            PetAction.Land => LandingPose(),
             PetAction.LookAround => LookingAroundPose(state.Mood),
             PetAction.Flutter => FlutteringPose(),
             PetAction.Yawn => YawningPose(),
@@ -224,6 +240,31 @@ public sealed class BehaviorMachine
 
         // ぴょんと跳ねて、すぐ降りる
         BobDots = -Math.Sin(Math.Min(1d, Elapsed / 0.3d) * Math.PI) * 3d,
+    };
+
+    // --- つまみ上げ ---
+
+    private PetPose HeldPose() => new()
+    {
+        // じたばた
+        Fin = Math.Sin(Elapsed * 18d) > 0d ? FinPose.Up : FinPose.Mid,
+        Eyes = EyePose.Surprised,
+        DriftDots = Math.Sin(Elapsed * 9d) * 0.8d,
+    };
+
+    private PetPose FallingPose() => new()
+    {
+        // 傘を広げて、ゆらゆら揺れながら降りる
+        Fin = FinPose.Up,
+        Eyes = EyePose.Open,
+        DriftDots = Math.Sin(Elapsed * 2.2d) * 2d,
+    };
+
+    private static PetPose LandingPose() => new()
+    {
+        Fin = FinPose.Droop,
+        Eyes = EyePose.Closed,
+        Flat = true,
     };
 
     // --- しぐさ ---
@@ -414,6 +455,7 @@ public sealed class BehaviorMachine
     {
         PetAction.None => 0,
         PetAction.Eat or PetAction.Happy or PetAction.Refuse or PetAction.Startle => 2,
+        PetAction.Held or PetAction.Fall or PetAction.Land => 2,
         PetAction.Evolve => 3,
         _ => 1,
     };
@@ -425,6 +467,9 @@ public sealed class BehaviorMachine
         PetAction.Refuse => 0.9d,
         PetAction.Evolve => 2.6d,
         PetAction.Startle => 0.6d,
+        PetAction.Held => double.PositiveInfinity,
+        PetAction.Fall => double.PositiveInfinity,
+        PetAction.Land => 0.35d,
         PetAction.LookAround => 1.8d,
         PetAction.Flutter => 1.2d,
         PetAction.Yawn => 2.2d,

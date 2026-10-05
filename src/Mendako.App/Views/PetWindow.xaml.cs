@@ -29,6 +29,14 @@ public partial class PetWindow : Window
     /// <summary>これ以上動いたらクリックではなくドラッグとみなす (DIP)。</summary>
     private const double DragThreshold = 4d;
 
+    /// <summary>これより低い位置で放されたら、落とさずにその場へ置く (DIP)。</summary>
+    private const double MinFallHeight = 12d;
+
+    /// <summary>降りる速さの上限 (DIP / 秒)。傘を広げているので、すとんとは落ちない。</summary>
+    private const double FallTerminalSpeed = 170d;
+
+    private const double FallAcceleration = 420d;
+
     private static readonly TimeSpan ActiveFrameInterval = TimeSpan.FromMilliseconds(33);
 
     /// <summary>就寝中など動きが乏しいときのフレーム間隔。常駐アプリなので回しっぱなしにしない。</summary>
@@ -55,6 +63,10 @@ public partial class PetWindow : Window
 
     private bool _traveled;
     private double _travelRemainder;
+
+    private bool _falling;
+    private double _fallSpeed;
+    private (double X, double Y) _fallPosition;
 
     private bool _dragging;
     private bool _dragMoved;
@@ -180,7 +192,7 @@ public partial class PetWindow : Window
 
     private void UpdatePosition()
     {
-        if (_dragging || _hwnd == IntPtr.Zero)
+        if (_dragging || _falling || _hwnd == IntPtr.Zero)
         {
             return;
         }
@@ -278,6 +290,7 @@ public partial class PetWindow : Window
         var pose = _behavior.Advance(delta, _state, MeasureSurroundings());
         Visual.Apply(pose, _state);
         Travel(pose.TravelDots);
+        StepFall(delta);
 
         UpdateHitTargeting();
         UpdateFrameRate();
@@ -331,7 +344,7 @@ public partial class PetWindow : Window
             PlacementChanged?.Invoke(this, new PetPlacement(_settings.MonitorId, _settings.PositionRatio));
         }
 
-        if (dots == 0d || _dragging || OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        if (dots == 0d || _dragging || _falling || OverlayWindow.GetBounds(_hwnd) is not { } bounds)
         {
             return;
         }
@@ -496,6 +509,9 @@ public partial class PetWindow : Window
             return;
         }
 
+        // 落ちている最中でも空中でつかまえられる
+        StopFalling();
+
         _dragging = true;
         _dragMoved = false;
         _suppressClickAction = false;
@@ -528,6 +544,7 @@ public partial class PetWindow : Window
             && (Math.Abs(dx) > DragThreshold * _dpi.DpiScaleX || Math.Abs(dy) > DragThreshold * _dpi.DpiScaleY))
         {
             _dragMoved = true;
+            _behavior.Trigger(PetAction.Held);
         }
 
         if (!_dragMoved)
@@ -535,15 +552,8 @@ public partial class PetWindow : Window
             return;
         }
 
-        // タスクバーに沿った方向にだけ動かす。隣のモニタまで引っ張れば、離したときにそちらへ移る
-        if (_rail.Horizontal)
-        {
-            OverlayWindow.MoveTo(_hwnd, _dragStartWindow.X + dx, _dragStartWindow.Y);
-        }
-        else
-        {
-            OverlayWindow.MoveTo(_hwnd, _dragStartWindow.X, _dragStartWindow.Y + dy);
-        }
+        // つまんでいるあいだは好きなところへ運べる。別のモニタへ持っていってもよい
+        OverlayWindow.MoveTo(_hwnd, _dragStartWindow.X + dx, _dragStartWindow.Y + dy);
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
@@ -555,17 +565,10 @@ public partial class PetWindow : Window
             return;
         }
 
-        _dragging = false;
-        ReleaseMouseCapture();
+        var clicked = !_dragMoved && !_suppressClickAction;
+        EndDrag();
 
-        if (_dragMoved)
-        {
-            var placement = ComputePlacementFromPosition();
-            _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
-            PlacementChanged?.Invoke(this, placement);
-            UpdatePosition();
-        }
-        else if (!_suppressClickAction)
+        if (clicked)
         {
             PokeRequested?.Invoke(this, EventArgs.Empty);
         }
@@ -573,6 +576,113 @@ public partial class PetWindow : Window
         _suppressClickAction = false;
         e.Handled = true;
     }
+
+    protected override void OnLostMouseCapture(MouseEventArgs e)
+    {
+        base.OnLostMouseCapture(e);
+
+        // ボタンを離す前にキャプチャを奪われることがある (UAC の昇格画面、Win+L など)。
+        // ここで手を離したことにしないと、つままれたまま宙に取り残される
+        EndDrag();
+    }
+
+    private void EndDrag()
+    {
+        if (!_dragging)
+        {
+            return;
+        }
+
+        _dragging = false;
+        ReleaseMouseCapture();
+
+        if (!_dragMoved)
+        {
+            return;
+        }
+
+        _dragMoved = false;
+        _behavior.Stop(PetAction.Held);
+
+        var placement = ComputePlacementFromPosition();
+        _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
+        PlacementChanged?.Invoke(this, placement);
+
+        StartFalling();
+    }
+
+    // --- 落下 ---
+
+    /// <summary>
+    /// 放された場所から足場へ戻る。持ち上げられていればふわふわ降り、ほとんど浮いていなければその場に置く。
+    /// 「落下」と呼んでいるが、タスクバーが上や左右にある場合はそちらへ寄っていく。
+    /// </summary>
+    private void StartFalling()
+    {
+        if (OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        {
+            return;
+        }
+
+        var (homeX, homeY) = ComputeHome();
+        var lift = _rail.Horizontal ? Math.Abs(bounds.Top - homeY) : Math.Abs(bounds.Left - homeX);
+
+        if (lift <= MinFallHeight * (_rail.Horizontal ? _dpi.DpiScaleY : _dpi.DpiScaleX))
+        {
+            UpdatePosition();
+            return;
+        }
+
+        _falling = true;
+        _fallSpeed = 0d;
+        _fallPosition = (bounds.Left, bounds.Top);
+        _behavior.Trigger(PetAction.Fall);
+    }
+
+    private void StopFalling()
+    {
+        if (!_falling)
+        {
+            return;
+        }
+
+        _falling = false;
+        _behavior.Stop(PetAction.Fall);
+    }
+
+    private void StepFall(double deltaSeconds)
+    {
+        if (!_falling)
+        {
+            return;
+        }
+
+        // 落ちている途中で DPI の違うモニタに入るとウィンドウの実寸が変わるので、行き先は毎フレーム測り直す
+        var (homeX, homeY) = ComputeHome();
+
+        _fallSpeed = Math.Min(FallTerminalSpeed, _fallSpeed + (FallAcceleration * deltaSeconds));
+        var step = _fallSpeed * deltaSeconds * (_rail.Horizontal ? _dpi.DpiScaleY : _dpi.DpiScaleX);
+
+        // 足場へ向かう方向はゆっくり、足場に沿った方向（端からはみ出して放したとき）は少し速めに寄せる
+        var (stepX, stepY) = _rail.Horizontal ? (step * 1.5d, step) : (step, step * 1.5d);
+        _fallPosition = (Approach(_fallPosition.X, homeX, stepX), Approach(_fallPosition.Y, homeY, stepY));
+
+        var x = (int)Math.Round(_fallPosition.X);
+        var y = (int)Math.Round(_fallPosition.Y);
+        OverlayWindow.MoveTo(_hwnd, x, y);
+
+        if (x == homeX && y == homeY)
+        {
+            _falling = false;
+            _behavior.Stop(PetAction.Fall);
+            _behavior.Trigger(PetAction.Land);
+        }
+    }
+
+    private static double Approach(double current, double target, double maxStep) =>
+        Math.Abs(target - current) <= maxStep
+            ? target
+            : current + (Math.Sign(target - current) * maxStep);
 
     private void OnFeedClick(object sender, RoutedEventArgs e) => FeedRequested?.Invoke(this, EventArgs.Empty);
 

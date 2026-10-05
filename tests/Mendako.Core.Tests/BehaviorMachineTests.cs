@@ -426,7 +426,7 @@ public class BehaviorMachineTests
         }
     }
 
-    // --- つつく ---
+    // --- つつく・つまむ ---
 
     [Fact]
     public void つつかれると目を丸くして跳ねる()
@@ -438,6 +438,58 @@ public class BehaviorMachineTests
 
         Assert.All(poses, p => Assert.Equal(EyePose.Surprised, p.Eyes));
         Assert.Contains(poses, p => p.BobDots < -2d);
+    }
+
+    [Fact]
+    public void つままれているあいだは_放すまで続く()
+    {
+        var machine = new BehaviorMachine(seed: 7);
+        machine.Trigger(PetAction.Held);
+
+        // しぐさが割り込める長さを十分に超えて持ち続ける
+        var poses = Run(machine, Awake(), 120d, Roomy);
+
+        Assert.Equal(PetAction.Held, machine.CurrentAction);
+        Assert.All(poses, p =>
+        {
+            Assert.Equal(EyePose.Surprised, p.Eyes);
+            Assert.Equal(0d, p.TravelDots);
+        });
+
+        machine.Stop(PetAction.Held);
+        Assert.Equal(PetAction.None, machine.CurrentAction);
+    }
+
+    [Fact]
+    public void 放されると傘を広げて降り_着地でぺたんとなる()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Fall);
+
+        var falling = Run(machine, Awake(), 3d);
+        Assert.All(falling, p => Assert.Equal(FinPose.Up, p.Fin));
+        Assert.Contains(falling, p => p.DriftDots > 1d);
+        Assert.Contains(falling, p => p.DriftDots < -1d);
+
+        machine.Stop(PetAction.Fall);
+        Assert.True(machine.Trigger(PetAction.Land));
+        Assert.True(machine.Advance(Frame, Awake()).Flat);
+
+        // ぺたんは一瞬で、すぐ待機に戻る
+        machine.Advance(0.5d, Awake());
+        Assert.Equal(PetAction.None, machine.CurrentAction);
+    }
+
+    [Fact]
+    public void Stopは別の動きに替わっていれば何もしない()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Held);
+        machine.Trigger(PetAction.Evolve);
+
+        machine.Stop(PetAction.Held);
+
+        Assert.Equal(PetAction.Evolve, machine.CurrentAction);
     }
 
     // --- 優先度 ---
