@@ -63,6 +63,7 @@ public partial class App : Application
         _window = window;
         window.FeedRequested += (_, _) => Feed();
         window.PetRequested += (_, _) => Pet();
+        window.PokeRequested += (_, _) => Poke();
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
         window.ExitRequested += (_, _) => Shutdown();
         window.PlacementChanged += OnPlacementChanged;
@@ -135,6 +136,17 @@ public partial class App : Application
         {
             _window.React(action);
         }
+    }
+
+    /// <summary>つつく。育成には影響せず、びっくりするだけ。</summary>
+    private void Poke()
+    {
+        if (_session is null || _window is null)
+        {
+            return;
+        }
+
+        _window.React(_session.State.IsAsleep ? PetAction.Refuse : PetAction.Startle);
     }
 
     // --- イベント配線 ---

@@ -37,6 +37,7 @@ public partial class PetWindow : Window
     private static readonly TimeSpan LayoutInterval = TimeSpan.FromSeconds(2);
 
     private readonly BehaviorMachine _behavior = new();
+    private readonly StrokeDetector _strokes = new();
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _layoutTimer;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -75,6 +76,9 @@ public partial class PetWindow : Window
     public event EventHandler? FeedRequested;
 
     public event EventHandler? PetRequested;
+
+    /// <summary>クリックでつつかれた。</summary>
+    public event EventHandler? PokeRequested;
 
     public event EventHandler? SleepToggleRequested;
 
@@ -399,17 +403,22 @@ public partial class PetWindow : Window
         var y = (cursor.Value.Y - bounds.Top) / _dpi.DpiScaleY;
 
         var inside = x >= 0d && y >= 0d && x < Width && y < Height;
-        var overContent = inside && IsOverContent(new Point(x, y));
+        var point = new Point(x, y);
+
+        // 本体はドットのアルファで判定する。なで判定に使うので、カードとは分けて持つ。
+        // VisualTreeHelper は本体 (MendakoVisual.HitTestCore) とステータスカードの両方を拾う
+        var overSprite = inside && Visual.HitTestSprite(RootGrid.TranslatePoint(point, Visual));
+        var overContent = overSprite || (inside && VisualTreeHelper.HitTest(RootGrid, point) is not null);
 
         SetHovering(overContent);
         ApplyClickThrough(!overContent);
-    }
 
-    /// <summary>
-    /// メンダコ本体（ドットのアルファ基準）かステータスカードの上にいるか。
-    /// 本体の判定は MendakoVisual.HitTestCore が受け持つので、ここでは WPF に聞くだけでよい。
-    /// </summary>
-    private bool IsOverContent(Point point) => VisualTreeHelper.HitTest(RootGrid, point) is not null;
+        // ボタンを押さずに体の上を左右に往復したら、なでたことにする
+        if (_strokes.Update(_clock.Elapsed.TotalSeconds, x, overSprite))
+        {
+            PetRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     private void ApplyClickThrough(bool enabled)
     {
@@ -558,7 +567,7 @@ public partial class PetWindow : Window
         }
         else if (!_suppressClickAction)
         {
-            PetRequested?.Invoke(this, EventArgs.Empty);
+            PokeRequested?.Invoke(this, EventArgs.Empty);
         }
 
         _suppressClickAction = false;

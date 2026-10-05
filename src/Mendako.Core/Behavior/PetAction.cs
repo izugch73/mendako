@@ -22,6 +22,9 @@ public enum PetAction
     /// <summary>成長段階が上がった。</summary>
     Evolve,
 
+    /// <summary>つつかれてびっくりした。</summary>
+    Startle,
+
     // --- しぐさ (ひとりでにやる) ---
 
     /// <summary>きょろきょろ見回す。</summary>

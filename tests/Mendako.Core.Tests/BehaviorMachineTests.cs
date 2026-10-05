@@ -426,6 +426,20 @@ public class BehaviorMachineTests
         }
     }
 
+    // --- つつく ---
+
+    [Fact]
+    public void つつかれると目を丸くして跳ねる()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Startle);
+
+        var poses = Run(machine, Awake(), 0.5d);
+
+        Assert.All(poses, p => Assert.Equal(EyePose.Surprised, p.Eyes));
+        Assert.Contains(poses, p => p.BobDots < -2d);
+    }
+
     // --- 優先度 ---
 
     [Fact]

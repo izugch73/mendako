@@ -247,6 +247,18 @@ public static class MendakoSprites
 
                 break;
 
+            case EyePose.Surprised:
+                // 2 x 2 のまんまる。顔の中心に対して左右対称になるよう、外側へ太らせる
+                foreach (var (inner, outer) in new[] { (LeftEyeX, LeftEyeX - 1), (RightEyeX, RightEyeX + 1) })
+                {
+                    PixelSprite.Set(rows, inner, EyeTopY, 'W');
+                    PixelSprite.Set(rows, outer, EyeTopY, 'W');
+                    PixelSprite.Set(rows, inner, EyeTopY + 1, 'W');
+                    PixelSprite.Set(rows, outer, EyeTopY + 1, 'W');
+                }
+
+                break;
+
             default:
                 foreach (var centre in new[] { LeftEyeX, RightEyeX })
                 {

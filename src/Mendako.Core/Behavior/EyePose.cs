@@ -10,4 +10,7 @@ public enum EyePose
 
     /// <summary>にっこり。</summary>
     Happy,
+
+    /// <summary>まんまる。びっくりしたとき。</summary>
+    Surprised,
 }

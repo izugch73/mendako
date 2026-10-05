@@ -106,6 +106,7 @@ public sealed class BehaviorMachine
             PetAction.Happy => HappyPose(),
             PetAction.Refuse => RefusingPose(),
             PetAction.Evolve => EvolvingPose(),
+            PetAction.Startle => StartledPose(),
             PetAction.LookAround => LookingAroundPose(state.Mood),
             PetAction.Flutter => FlutteringPose(),
             PetAction.Yawn => YawningPose(),
@@ -214,6 +215,15 @@ public sealed class BehaviorMachine
         Eyes = EyePose.Happy,
         BobDots = -Math.Abs(Math.Sin(Elapsed * 3d)) * 3d,
         ShowHeart = true,
+    };
+
+    private PetPose StartledPose() => new()
+    {
+        Fin = FinPose.Up,
+        Eyes = EyePose.Surprised,
+
+        // ぴょんと跳ねて、すぐ降りる
+        BobDots = -Math.Sin(Math.Min(1d, Elapsed / 0.3d) * Math.PI) * 3d,
     };
 
     // --- しぐさ ---
@@ -403,7 +413,7 @@ public sealed class BehaviorMachine
     private static int Priority(PetAction action) => action switch
     {
         PetAction.None => 0,
-        PetAction.Eat or PetAction.Happy or PetAction.Refuse => 2,
+        PetAction.Eat or PetAction.Happy or PetAction.Refuse or PetAction.Startle => 2,
         PetAction.Evolve => 3,
         _ => 1,
     };
@@ -414,6 +424,7 @@ public sealed class BehaviorMachine
         PetAction.Happy => 1.6d,
         PetAction.Refuse => 0.9d,
         PetAction.Evolve => 2.6d,
+        PetAction.Startle => 0.6d,
         PetAction.LookAround => 1.8d,
         PetAction.Flutter => 1.2d,
         PetAction.Yawn => 2.2d,
