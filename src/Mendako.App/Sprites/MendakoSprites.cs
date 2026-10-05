@@ -2,34 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Mendako.Core.Behavior;
 using Mendako.Core.Model;
 
 namespace Mendako.App.Sprites;
-
-/// <summary>耳ビレの位置。パタパタは Up と Mid の 2 コマで回す。</summary>
-public enum FinPose
-{
-    /// <summary>持ち上がっている。</summary>
-    Up,
-
-    /// <summary>ふつう。</summary>
-    Mid,
-
-    /// <summary>垂れている。しょんぼり・就寝時。</summary>
-    Droop,
-}
-
-/// <summary>目の状態。</summary>
-public enum EyePose
-{
-    Open,
-
-    /// <summary>閉じている。まばたきと就寝。</summary>
-    Closed,
-
-    /// <summary>にっこり。</summary>
-    Happy,
-}
 
 /// <summary>
 /// メンダコのドット絵。1 ドット = 1 文字で書いてあり、実行時にビットマップへ展開する。
@@ -46,6 +22,9 @@ public static class MendakoSprites
     public const int Height = 17;
 
     private const int DomeHeight = 8;
+
+    /// <summary>ぺたんとしたときに低くなるドット数。</summary>
+    private const int FlatDrop = 3;
 
     private const int LeftEyeX = 7;
 
@@ -154,7 +133,7 @@ public static class MendakoSprites
 
     private static readonly Color Outline = Color.FromRgb(0x1B, 0x24, 0x40);
 
-    private static readonly Dictionary<(GrowthStage Stage, FinPose Fin, EyePose Eyes), Frame> Cache = new();
+    private static readonly Dictionary<(GrowthStage Stage, FinPose Fin, EyePose Eyes, int Gaze, bool Flat), Frame> Cache = new();
 
     private static Frame? _eggFrame;
 
@@ -176,20 +155,23 @@ public static class MendakoSprites
         _ => 6,
     };
 
-    public static Frame Get(GrowthStage stage, FinPose fin, EyePose eyes)
+    public static Frame Get(GrowthStage stage, FinPose fin, EyePose eyes, int gaze = 0, bool flat = false)
     {
         if (stage == GrowthStage.Egg)
         {
             return _eggFrame ??= new Frame(PixelSprite.Create(Egg, EggPalette()), Egg);
         }
 
-        var key = (stage, fin, eyes);
+        // 視線が効くのは開いた目だけ。それ以外で鍵を分けるとキャッシュが無駄に増える
+        gaze = eyes == EyePose.Open ? Math.Clamp(gaze, -1, 1) : 0;
+
+        var key = (stage, fin, eyes, gaze, flat);
         if (Cache.TryGetValue(key, out var cached))
         {
             return cached;
         }
 
-        var rows = Compose(fin, eyes);
+        var rows = Compose(fin, eyes, gaze, flat);
         var frame = new Frame(PixelSprite.Create(rows, Palette(stage)), rows);
         Cache[key] = frame;
         return frame;
@@ -205,7 +187,7 @@ public static class MendakoSprites
             Heart,
             new Dictionary<char, Color> { ['K'] = Color.FromRgb(0xFF, 0x7B, 0x96) });
 
-    private static string[] Compose(FinPose fin, EyePose eyes)
+    private static string[] Compose(FinPose fin, EyePose eyes, int gaze, bool flat)
     {
         var dome = fin switch
         {
@@ -215,14 +197,31 @@ public static class MendakoSprites
         };
 
         var rows = new string[Height];
-        Array.Copy(dome, 0, rows, 0, DomeHeight);
+
+        if (flat)
+        {
+            // 頭の下 FlatDrop 行はどの耳ビレでもただの側面なので、そこを抜いて頭ごと沈める。
+            // 目と足は動かさない。背だけが低くなって、ぺたんと潰れて見える
+            var blank = new string(PixelSprite.Transparent, Width);
+            for (var y = 0; y < FlatDrop; y++)
+            {
+                rows[y] = blank;
+            }
+
+            Array.Copy(dome, 0, rows, FlatDrop, DomeHeight - FlatDrop);
+        }
+        else
+        {
+            Array.Copy(dome, 0, rows, 0, DomeHeight);
+        }
+
         Array.Copy(Body, 0, rows, DomeHeight, Body.Length);
 
-        StampEyes(rows, eyes);
+        StampEyes(rows, eyes, gaze);
         return rows;
     }
 
-    private static void StampEyes(string[] rows, EyePose eyes)
+    private static void StampEyes(string[] rows, EyePose eyes, int gaze)
     {
         switch (eyes)
         {
@@ -248,11 +247,23 @@ public static class MendakoSprites
 
                 break;
 
+            case EyePose.Surprised:
+                // 2 x 2 のまんまる。顔の中心に対して左右対称になるよう、外側へ太らせる
+                foreach (var (inner, outer) in new[] { (LeftEyeX, LeftEyeX - 1), (RightEyeX, RightEyeX + 1) })
+                {
+                    PixelSprite.Set(rows, inner, EyeTopY, 'W');
+                    PixelSprite.Set(rows, outer, EyeTopY, 'W');
+                    PixelSprite.Set(rows, inner, EyeTopY + 1, 'W');
+                    PixelSprite.Set(rows, outer, EyeTopY + 1, 'W');
+                }
+
+                break;
+
             default:
                 foreach (var centre in new[] { LeftEyeX, RightEyeX })
                 {
-                    PixelSprite.Set(rows, centre, EyeTopY, 'W');
-                    PixelSprite.Set(rows, centre, EyeTopY + 1, 'W');
+                    PixelSprite.Set(rows, centre + gaze, EyeTopY, 'W');
+                    PixelSprite.Set(rows, centre + gaze, EyeTopY + 1, 'W');
                 }
 
                 break;

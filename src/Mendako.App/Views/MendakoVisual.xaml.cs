@@ -2,7 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using Mendako.App.Behavior;
+using System.Windows.Media;
+using Mendako.Core.Behavior;
 using Mendako.App.Sprites;
 using Mendako.Core.Model;
 
@@ -27,12 +28,15 @@ public partial class MendakoVisual : UserControl
         InitializeComponent();
     }
 
+    /// <summary>いま描いているスプライトの中心（このコントロールの座標系）。視線の基準に使う。</summary>
+    public Point SpriteCentre { get; private set; }
+
     /// <summary>1 フレーム分の見た目を反映する。</summary>
     public void Apply(PetPose pose, MendakoState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var frame = MendakoSprites.Get(state.Stage, pose.Fin, pose.Eyes);
+        var frame = MendakoSprites.Get(state.Stage, pose.Fin, pose.Eyes, pose.GazeDots, pose.Flat);
         _currentRows = frame.Rows;
         _pixelScale = MendakoSprites.PixelScale(state.Stage);
 
@@ -45,6 +49,7 @@ public partial class MendakoVisual : UserControl
 
         _spriteLeft = Math.Round((Width - spriteWidth) / 2d) + drift;
         _spriteTop = FootY - spriteHeight + bob;
+        SpriteCentre = new Point(_spriteLeft + (spriteWidth / 2d), _spriteTop + (spriteHeight / 2d));
 
         BodyImage.Source = frame.Bitmap;
         BodyImage.Width = spriteWidth;
@@ -54,6 +59,19 @@ public partial class MendakoVisual : UserControl
 
         UpdateSleepMark(pose.ShowSleepMark, spriteWidth);
         UpdateHeart(pose.ShowHeart, spriteWidth);
+    }
+
+    /// <summary>
+    /// WPF のヒットテストにも、ドットのある場所だけを当たりとして返す。
+    /// これが無いとクリックがウィンドウに届いても配る相手がおらず、マウスイベントが発火しない。
+    /// </summary>
+    protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters)
+    {
+        ArgumentNullException.ThrowIfNull(hitTestParameters);
+
+        return HitTestSprite(hitTestParameters.HitPoint)
+            ? new PointHitTestResult(this, hitTestParameters.HitPoint)
+            : null;
     }
 
     /// <summary>

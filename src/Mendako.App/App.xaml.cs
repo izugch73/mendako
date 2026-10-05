@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows;
-using Mendako.App.Behavior;
+using Mendako.Core.Behavior;
 using Mendako.App.Services;
 using Mendako.App.Views;
 using Mendako.Core.Model;
@@ -63,9 +63,10 @@ public partial class App : Application
         _window = window;
         window.FeedRequested += (_, _) => Feed();
         window.PetRequested += (_, _) => Pet();
+        window.PokeRequested += (_, _) => Poke();
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
         window.ExitRequested += (_, _) => Shutdown();
-        window.PositionRatioChanged += OnPositionRatioChanged;
+        window.PlacementChanged += OnPlacementChanged;
         window.Initialize(session.State, _settings);
         window.Show();
 
@@ -137,6 +138,17 @@ public partial class App : Application
         }
     }
 
+    /// <summary>つつく。育成には影響せず、びっくりするだけ。</summary>
+    private void Poke()
+    {
+        if (_session is null || _window is null)
+        {
+            return;
+        }
+
+        _window.React(_session.State.IsAsleep ? PetAction.Refuse : PetAction.Startle);
+    }
+
     // --- イベント配線 ---
 
     private void OnStateChanged(object? sender, MendakoState state)
@@ -161,9 +173,9 @@ public partial class App : Application
             $"{days} 日以上ぶりですね。そのあいだの時間は打ち切ってあるので、手遅れにはなっていません。");
     }
 
-    private void OnPositionRatioChanged(object? sender, double ratio)
+    private void OnPlacementChanged(object? sender, PetPlacement placement)
     {
-        _settings = _settings with { PositionRatio = ratio };
+        _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
         _settingsStore?.Save(_settings);
     }
 

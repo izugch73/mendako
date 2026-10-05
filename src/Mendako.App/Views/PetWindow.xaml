@@ -104,7 +104,8 @@
                            Text=""
                            FontSize="10"
                            Foreground="{StaticResource CardMuted}" />
-                <TextBlock Text="クリックでなでる / ダブルクリックでごはん"
+                <TextBlock Text="左右になでる / ダブルクリックでごはん / つまんで運ぶ"
+                           TextWrapping="Wrap"
                            FontSize="9"
                            Margin="0,6,0,0"
                            Foreground="#FF7E7278" />

@@ -9,6 +9,12 @@ public sealed record AppSettings
     /// </summary>
     public double PositionRatio { get; init; } = 0.72d;
 
+    /// <summary>
+    /// 居着いているモニタのデバイス名 (<c>\\.\DISPLAY2</c> など)。null ならプライマリ。
+    /// そのモニタが見つからないあいだはプライマリに避難し、戻ってきたら元の場所に帰る。
+    /// </summary>
+    public string? MonitorId { get; init; }
+
     /// <summary>表示倍率。</summary>
     public double Scale { get; init; } = 1.0d;
 

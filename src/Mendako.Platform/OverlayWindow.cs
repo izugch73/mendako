@@ -45,6 +45,41 @@ public static class OverlayWindow
     }
 
     /// <summary>
+    /// 物理ピクセルで位置を決める。WPF の Left / Top は DIP で、DPI の違うモニタをまたぐと
+    /// どの倍率で換算されるかが当てにならないので、位置だけは Win32 で直接動かす。
+    /// </summary>
+    public static void MoveTo(IntPtr hwnd, int x, int y)
+    {
+        if (hwnd == IntPtr.Zero)
+        {
+            return;
+        }
+
+        NativeMethods.SetWindowPos(
+            hwnd,
+            IntPtr.Zero,
+            x,
+            y,
+            0,
+            0,
+            NativeMethods.SWP_NOSIZE
+                | NativeMethods.SWP_NOZORDER
+                | NativeMethods.SWP_NOACTIVATE
+                | NativeMethods.SWP_NOOWNERZORDER);
+    }
+
+    /// <summary>ウィンドウの現在の矩形 (物理ピクセル)。取得に失敗したら null。</summary>
+    public static PixelRect? GetBounds(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero || !NativeMethods.GetWindowRect(hwnd, out var rect))
+        {
+            return null;
+        }
+
+        return PixelRect.From(rect);
+    }
+
+    /// <summary>
     /// 最前面を貼り直す。タスクバー自身も TOPMOST なので、他アプリの操作で
     /// 順序が入れ替わることがある。定期的に、または WM_WINDOWPOSCHANGED で呼ぶ。
     /// </summary>
