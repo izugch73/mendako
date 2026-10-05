@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Mendako.App.Services;
+using Mendako.App.Sprites;
 using Mendako.Core.Behavior;
 using Mendako.Core.Model;
 using Mendako.Platform;
@@ -50,6 +51,9 @@ public partial class PetWindow : Window
     private bool _clickThrough = true;
     private bool _hovering;
     private bool _hiddenForPresence;
+
+    private bool _traveled;
+    private double _travelRemainder;
 
     private bool _dragging;
     private bool _dragMoved;
@@ -267,11 +271,93 @@ public partial class PetWindow : Window
         var delta = now - _lastFrameSeconds;
         _lastFrameSeconds = now;
 
-        var pose = _behavior.Advance(delta, _state);
+        var pose = _behavior.Advance(delta, _state, MeasureSurroundings());
         Visual.Apply(pose, _state);
+        Travel(pose.TravelDots);
 
         UpdateHitTargeting();
         UpdateFrameRate();
+    }
+
+    /// <summary>1 ドットが物理ピクセルでいくつか。タスクバーに沿った方向の倍率で測る。</summary>
+    private double DotPixels =>
+        MendakoSprites.PixelScale(_state.Stage) * (_rail.Horizontal ? _dpi.DpiScaleX : _dpi.DpiScaleY);
+
+    /// <summary>カーソルの位置と、左右にどれだけ動けるかを測る。</summary>
+    private BehaviorInput MeasureSurroundings()
+    {
+        if (OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        {
+            return default;
+        }
+
+        var position = _rail.Horizontal ? bounds.Left : bounds.Top;
+        var end = _rail.Start + _rail.Span(_rail.Horizontal ? bounds.Width : bounds.Height);
+
+        (double X, double Y)? cursorDots = null;
+        if (Pointer.TryGetPosition() is { } cursor)
+        {
+            var centre = Visual.TranslatePoint(Visual.SpriteCentre, RootGrid);
+            var scale = MendakoSprites.PixelScale(_state.Stage);
+            cursorDots = (
+                (((cursor.X - bounds.Left) / _dpi.DpiScaleX) - centre.X) / scale,
+                (((cursor.Y - bounds.Top) / _dpi.DpiScaleY) - centre.Y) / scale);
+        }
+
+        return new BehaviorInput
+        {
+            CursorDots = cursorDots,
+            Hovering = _hovering || _dragging,
+            RoomBeforeDots = (position - _rail.Start) / DotPixels,
+            RoomAfterDots = (end - position) / DotPixels,
+            VerticalRail = !_rail.Horizontal,
+        };
+    }
+
+    /// <summary>
+    /// おさんぽ。ウィンドウごとタスクバーに沿って動かす。
+    /// 設定ファイルへの保存は泳ぎ終わってからの 1 回だけにする。
+    /// </summary>
+    private void Travel(double dots)
+    {
+        if (_traveled && _behavior.CurrentAction != PetAction.Swim)
+        {
+            _traveled = false;
+            _travelRemainder = 0d;
+            PlacementChanged?.Invoke(this, new PetPlacement(_settings.MonitorId, _settings.PositionRatio));
+        }
+
+        if (dots == 0d || _dragging || OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        {
+            return;
+        }
+
+        // 1 フレームの移動は 1 ピクセルに満たないことが多いので、端数を持ち越す
+        var pixels = (dots * DotPixels) + _travelRemainder;
+        var whole = (int)Math.Truncate(pixels);
+        _travelRemainder = pixels - whole;
+
+        if (whole == 0)
+        {
+            return;
+        }
+
+        var span = _rail.Span(_rail.Horizontal ? bounds.Width : bounds.Height);
+        var current = _rail.Horizontal ? bounds.Left : bounds.Top;
+        var next = Math.Clamp(current + whole, _rail.Start, _rail.Start + span);
+
+        if (_rail.Horizontal)
+        {
+            OverlayWindow.MoveTo(_hwnd, next, _rail.Cross);
+        }
+        else
+        {
+            OverlayWindow.MoveTo(_hwnd, _rail.Cross, next);
+        }
+
+        // 比率も一緒に進めておかないと、次の UpdatePosition で元の場所へ引き戻される
+        _settings = _settings with { PositionRatio = span > 0 ? (next - _rail.Start) / (double)span : 0d };
+        _traveled = true;
     }
 
     /// <summary>動きが乏しいときはフレームレートを落とす。</summary>

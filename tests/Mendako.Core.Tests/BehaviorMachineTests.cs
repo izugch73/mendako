@@ -20,16 +20,48 @@ public class BehaviorMachineTests
 
     private static MendakoState Asleep() => Awake() with { IsAsleep = true };
 
+    private static MendakoState Egg() => Awake() with { Growth = 0d };
+
+    /// <summary>左右どちらにも十分に動ける状況。</summary>
+    private static readonly BehaviorInput Roomy = new() { RoomBeforeDots = 200d, RoomAfterDots = 200d };
+
+    /// <summary>ひとりでにしぐさを始めない機械。待機そのものを見たいテスト用。</summary>
+    private static BehaviorMachine Quiet(int seed = 1) => new(seed) { GesturesEnabled = false };
+
     /// <summary>指定秒数ぶんフレームを回し、そのあいだのコマをすべて返す。</summary>
-    private static List<PetPose> Run(BehaviorMachine machine, MendakoState state, double seconds)
+    private static List<PetPose> Run(
+        BehaviorMachine machine,
+        MendakoState state,
+        double seconds,
+        BehaviorInput input = default)
     {
         var poses = new List<PetPose>();
         for (var t = 0d; t < seconds; t += Frame)
         {
-            poses.Add(machine.Advance(Frame, state));
+            poses.Add(machine.Advance(Frame, state, input));
         }
 
         return poses;
+    }
+
+    /// <summary>指定秒数のあいだに現れた動きを、現れた順に重複なく返す。</summary>
+    private static List<PetAction> ActionsSeen(
+        BehaviorMachine machine,
+        MendakoState state,
+        double seconds,
+        BehaviorInput input = default)
+    {
+        var seen = new List<PetAction>();
+        for (var t = 0d; t < seconds; t += Frame)
+        {
+            machine.Advance(Frame, state, input);
+            if (machine.CurrentAction != PetAction.None && !seen.Contains(machine.CurrentAction))
+            {
+                seen.Add(machine.CurrentAction);
+            }
+        }
+
+        return seen;
     }
 
     // --- 待機 ---
@@ -37,7 +69,7 @@ public class BehaviorMachineTests
     [Fact]
     public void 待機中は耳ビレがUpとMidを行き来する()
     {
-        var machine = new BehaviorMachine(seed: 1);
+        var machine = Quiet();
 
         var poses = Run(machine, Awake(), 10d);
 
@@ -53,7 +85,7 @@ public class BehaviorMachineTests
         var state = Awake(satiety: 5d, energy: 5d, affection: 5d);
         Assert.True(state.Mood is Mood.Sleepy or Mood.Gloomy, $"前提が崩れている: {state.Mood}");
 
-        var poses = Run(new BehaviorMachine(seed: 1), state, 5d);
+        var poses = Run(Quiet(), state, 5d);
 
         Assert.All(poses, p => Assert.Equal(FinPose.Droop, p.Fin));
     }
@@ -61,7 +93,7 @@ public class BehaviorMachineTests
     [Fact]
     public void 待機中はまばたきをして_すぐ目を開ける()
     {
-        var machine = new BehaviorMachine(seed: 1);
+        var machine = Quiet();
 
         var poses = Run(machine, Awake(), 30d);
 
@@ -94,8 +126,8 @@ public class BehaviorMachineTests
     [Fact]
     public void 同じシードなら同じコマ列になる()
     {
-        var first = Run(new BehaviorMachine(seed: 42), Awake(), 20d);
-        var second = Run(new BehaviorMachine(seed: 42), Awake(), 20d);
+        var first = Run(new BehaviorMachine(seed: 42), Awake(), 120d, Roomy);
+        var second = Run(new BehaviorMachine(seed: 42), Awake(), 120d, Roomy);
 
         Assert.Equal(first, second);
     }
@@ -184,6 +216,214 @@ public class BehaviorMachineTests
         machine.Advance(0.7d, Awake());
 
         Assert.Equal(PetAction.None, machine.CurrentAction);
+    }
+
+    [Fact]
+    public void 食べているあいだは目を閉じたまま()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Eat);
+
+        var poses = Run(machine, Awake(), 1.5d);
+
+        Assert.All(poses, p => Assert.Equal(EyePose.Closed, p.Eyes));
+    }
+
+    // --- 視線 ---
+
+    [Theory]
+    [InlineData(20d, -5d, 1)]
+    [InlineData(-20d, -5d, -1)]
+    [InlineData(1d, -20d, 0)] // ほぼ真上
+    [InlineData(200d, 0d, 0)] // 遠すぎる
+    public void 近くのカーソルを目で追う(double x, double y, int expected)
+    {
+        var input = new BehaviorInput { CursorDots = (x, y) };
+
+        var pose = Quiet().Advance(Frame, Awake(), input);
+
+        Assert.Equal(expected, pose.GazeDots);
+    }
+
+    [Fact]
+    public void カーソルの位置が分からなければ正面を見る()
+    {
+        var pose = Quiet().Advance(Frame, Awake());
+
+        Assert.Equal(0, pose.GazeDots);
+    }
+
+    // --- しぐさ ---
+
+    [Fact]
+    public void 放っておくとひとりでにしぐさをする()
+    {
+        var seen = ActionsSeen(new BehaviorMachine(seed: 7), Awake(), 300d, Roomy);
+
+        Assert.True(seen.Count >= 3, $"しぐさの種類が少ない: {string.Join(", ", seen)}");
+        Assert.DoesNotContain(PetAction.Eat, seen);
+        Assert.DoesNotContain(PetAction.Wobble, seen);
+    }
+
+    [Fact]
+    public void しぐさを切ると待機だけになる()
+    {
+        var seen = ActionsSeen(Quiet(), Awake(), 300d, Roomy);
+
+        Assert.Empty(seen);
+    }
+
+    [Fact]
+    public void 就寝中はしぐさをしない()
+    {
+        var seen = ActionsSeen(new BehaviorMachine(seed: 7), Asleep(), 300d, Roomy);
+
+        Assert.Empty(seen);
+    }
+
+    [Fact]
+    public void たまごは揺れるだけ()
+    {
+        var state = Egg();
+        Assert.Equal(GrowthStage.Egg, state.Stage);
+
+        var machine = new BehaviorMachine(seed: 7);
+        var seen = ActionsSeen(machine, state, 300d, Roomy);
+
+        Assert.Equal(new[] { PetAction.Wobble }, seen);
+    }
+
+    [Fact]
+    public void ねむいときは泳がず_ぱたぱたもしない()
+    {
+        var state = Awake(energy: 10d);
+        Assert.Equal(Mood.Sleepy, state.Mood);
+
+        var seen = ActionsSeen(new BehaviorMachine(seed: 7), state, 600d, Roomy);
+
+        Assert.Contains(PetAction.Yawn, seen);
+        Assert.DoesNotContain(PetAction.Swim, seen);
+        Assert.DoesNotContain(PetAction.Flutter, seen);
+    }
+
+    [Fact]
+    public void きょろきょろは左右を順に見る()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.LookAround);
+
+        var gazes = Run(machine, Awake(), 1.7d).Select(p => p.GazeDots).Distinct().ToList();
+
+        Assert.Equal(new[] { -1, 0, 1 }, gazes.Take(3));
+    }
+
+    [Fact]
+    public void ぺたんとすると平たいコマになる()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Flatten);
+
+        var poses = Run(machine, Awake(), 2d);
+
+        Assert.All(poses, p =>
+        {
+            Assert.True(p.Flat);
+            Assert.Equal(0d, p.BobDots);
+        });
+    }
+
+    [Fact]
+    public void しぐさは世話のリアクションに譲る()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Flatten);
+
+        Assert.True(machine.Trigger(PetAction.Happy));
+
+        // 逆に、喜んでいる最中にしぐさは割り込めない
+        Assert.False(machine.Trigger(PetAction.Yawn));
+        Assert.Equal(PetAction.Happy, machine.CurrentAction);
+    }
+
+    // --- おさんぽ ---
+
+    [Fact]
+    public void 動ける余地がなければ泳ぎ出さない()
+    {
+        // 既定の入力は余地ゼロ
+        var seen = ActionsSeen(new BehaviorMachine(seed: 7), Awake(), 600d);
+
+        Assert.DoesNotContain(PetAction.Swim, seen);
+    }
+
+    [Fact]
+    public void 泳ぐと余地のある側へ進み_余地を超えない()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Swim, durationSeconds: 60d);
+
+        // 右にだけ 10 ドット動ける
+        var room = 10d;
+        var travelled = 0d;
+        for (var i = 0; i < 60 * 30 && machine.CurrentAction == PetAction.Swim; i++)
+        {
+            var pose = machine.Advance(Frame, Awake(), new BehaviorInput { RoomAfterDots = room - travelled });
+            Assert.True(pose.TravelDots >= 0d, "余地のない左へ進んだ");
+            travelled += pose.TravelDots;
+        }
+
+        Assert.Equal(room, travelled, precision: 6);
+
+        // 端に着いたら、指定した長さを待たずに切り上げる
+        Assert.Equal(PetAction.None, machine.CurrentAction);
+    }
+
+    [Fact]
+    public void 泳いでいるあいだは進行方向を見る()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Swim);
+
+        var poses = Run(machine, Awake(), 1d, new BehaviorInput { RoomBeforeDots = 100d });
+
+        Assert.All(poses, p => Assert.True(p.TravelDots <= 0d));
+        Assert.Contains(poses, p => p.Eyes == EyePose.Open && p.GazeDots == -1);
+        Assert.DoesNotContain(poses, p => p.GazeDots == 1);
+    }
+
+    [Fact]
+    public void 縦置きのタスクバーでは横目にならない()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Swim);
+
+        var poses = Run(machine, Awake(), 1d, Roomy with { VerticalRail = true });
+
+        Assert.All(poses, p => Assert.Equal(0, p.GazeDots));
+    }
+
+    [Fact]
+    public void カーソルを乗せると立ち止まる()
+    {
+        var machine = Quiet();
+        machine.Trigger(PetAction.Swim);
+        machine.Advance(0.5d, Awake(), Roomy);
+
+        var pose = machine.Advance(Frame, Awake(), Roomy with { Hovering = true });
+
+        Assert.Equal(PetAction.None, machine.CurrentAction);
+        Assert.Equal(0d, pose.TravelDots);
+    }
+
+    [Fact]
+    public void 泳いでいないときは居場所を動かさない()
+    {
+        var machine = Quiet();
+        foreach (var action in new[] { PetAction.Eat, PetAction.Happy, PetAction.Flutter, PetAction.Yawn })
+        {
+            machine.Trigger(action, durationSeconds: 1d);
+            Assert.All(Run(machine, Awake(), 1.2d, Roomy), p => Assert.Equal(0d, p.TravelDots));
+        }
     }
 
     // --- 優先度 ---

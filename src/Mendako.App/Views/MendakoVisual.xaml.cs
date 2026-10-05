@@ -27,12 +27,15 @@ public partial class MendakoVisual : UserControl
         InitializeComponent();
     }
 
+    /// <summary>いま描いているスプライトの中心（このコントロールの座標系）。視線の基準に使う。</summary>
+    public Point SpriteCentre { get; private set; }
+
     /// <summary>1 フレーム分の見た目を反映する。</summary>
     public void Apply(PetPose pose, MendakoState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        var frame = MendakoSprites.Get(state.Stage, pose.Fin, pose.Eyes);
+        var frame = MendakoSprites.Get(state.Stage, pose.Fin, pose.Eyes, pose.GazeDots, pose.Flat);
         _currentRows = frame.Rows;
         _pixelScale = MendakoSprites.PixelScale(state.Stage);
 
@@ -45,6 +48,7 @@ public partial class MendakoVisual : UserControl
 
         _spriteLeft = Math.Round((Width - spriteWidth) / 2d) + drift;
         _spriteTop = FootY - spriteHeight + bob;
+        SpriteCentre = new Point(_spriteLeft + (spriteWidth / 2d), _spriteTop + (spriteHeight / 2d));
 
         BodyImage.Source = frame.Bitmap;
         BodyImage.Width = spriteWidth;
