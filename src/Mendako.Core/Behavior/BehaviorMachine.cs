@@ -26,12 +26,28 @@ public sealed class BehaviorMachine
 
     public PetAction CurrentAction { get; private set; } = PetAction.None;
 
-    /// <summary>一時的なリアクションを開始する。実行中のものは上書きされる。</summary>
-    public void Trigger(PetAction action, double? durationSeconds = null)
+    /// <summary>
+    /// 一時的なリアクションを開始する。実行中のものより優先度が低ければ無視して false を返す。
+    /// 同じ優先度なら後から来たほうが勝つ (連打したら最後の操作に反応してほしい)。
+    /// </summary>
+    public bool Trigger(PetAction action, double? durationSeconds = null)
     {
+        if (action == PetAction.None)
+        {
+            return false;
+        }
+
+        // 終了時刻を過ぎていても、次の Advance までは CurrentAction が残っている
+        var running = _time < _actionEndsAt ? CurrentAction : PetAction.None;
+        if (Priority(action) < Priority(running))
+        {
+            return false;
+        }
+
         CurrentAction = action;
         _actionStartedAt = _time;
         _actionEndsAt = _time + (durationSeconds ?? DefaultDuration(action));
+        return true;
     }
 
     /// <summary>指定秒数だけ時間を進め、そのフレームのコマを返す。</summary>
@@ -183,6 +199,16 @@ public sealed class BehaviorMachine
     }
 
     private double NextBlinkInterval() => 2.5d + (_random.NextDouble() * 4.5d);
+
+    /// <summary>
+    /// 段階アップは一度きりなので、世話のリアクションに潰されないよう一段上に置く。
+    /// </summary>
+    private static int Priority(PetAction action) => action switch
+    {
+        PetAction.None => 0,
+        PetAction.Evolve => 2,
+        _ => 1,
+    };
 
     private static double DefaultDuration(PetAction action) => action switch
     {
