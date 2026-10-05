@@ -44,7 +44,7 @@ public partial class PetWindow : Window
     private DpiScale _dpi = new(1d, 1d);
     private MendakoState _state = MendakoState.CreateNew(DateTimeOffset.UtcNow);
     private AppSettings _settings = new();
-    private TaskbarEdge _taskbarEdge = TaskbarEdge.Bottom;
+    private Rail _rail = new(true, 0, 0, 0);
 
     private double _lastFrameSeconds;
     private bool _clickThrough = true;
@@ -55,8 +55,7 @@ public partial class PetWindow : Window
     private bool _dragMoved;
     private bool _suppressClickAction;
     private (int X, int Y) _dragStartCursor;
-    private double _dragStartLeft;
-    private double _dragStartTop;
+    private (int X, int Y) _dragStartWindow;
 
     public PetWindow()
     {
@@ -77,8 +76,8 @@ public partial class PetWindow : Window
 
     public event EventHandler? ExitRequested;
 
-    /// <summary>ドラッグで位置が変わったときに、新しい比率とともに発火する。</summary>
-    public event EventHandler<double>? PositionRatioChanged;
+    /// <summary>ドラッグで居場所が変わったときに発火する。</summary>
+    public event EventHandler<PetPlacement>? PlacementChanged;
 
     public void Initialize(MendakoState state, AppSettings settings)
     {
@@ -143,7 +142,10 @@ public partial class PetWindow : Window
     {
         base.OnDpiChanged(oldDpi, newDpi);
         _dpi = newDpi;
-        UpdatePosition();
+
+        // DPI の違うモニタへ動かした SetWindowPos の最中に呼ばれるので、その場では動かさず後回しにする。
+        // ウィンドウの実寸が変わったぶん、足元を合わせ直す必要がある
+        Dispatcher.BeginInvoke(UpdatePosition, DispatcherPriority.Background);
     }
 
     private void OnDisplaySettingsChanged(object? sender, EventArgs e)
@@ -154,75 +156,108 @@ public partial class PetWindow : Window
     }
 
     // --- 位置決め ---
+    //
+    // ここから下の座標はすべて物理ピクセル。DPI の違うモニタをまたぐので DIP には直さない。
+
+    /// <summary>
+    /// メンダコが行き来できる線分。横向きなら X が Start〜End、Y が Cross で固定。縦向きはその逆。
+    /// </summary>
+    private readonly record struct Rail(bool Horizontal, int Start, int End, int Cross)
+    {
+        public int Span(int size) => Math.Max(0, End - Start - size);
+    }
+
+    private (int Width, int Height) WindowPixelSize =>
+        ((int)Math.Round(Width * _dpi.DpiScaleX), (int)Math.Round(Height * _dpi.DpiScaleY));
 
     private void UpdatePosition()
     {
-        if (_dragging)
+        if (_dragging || _hwnd == IntPtr.Zero)
         {
             return;
         }
 
-        var anchor = ComputeAnchor();
-        Left = anchor.Left;
-        Top = anchor.Top;
-    }
+        var (x, y) = ComputeHome();
 
-    private (double Left, double Top) ComputeAnchor()
-    {
-        var taskbar = TaskbarLocator.Locate();
-
-        // 自動的に隠す設定だとタスクバーの矩形が画面外にあるので、作業領域を基準にする
-        if (taskbar is null || taskbar.IsAutoHide)
+        // 2 秒ごとに呼ばれるので、動いていないときは触らない
+        if (OverlayWindow.GetBounds(_hwnd) is { } bounds && bounds.Left == x && bounds.Top == y)
         {
-            _taskbarEdge = TaskbarEdge.Bottom;
-            var work = SystemParameters.WorkArea;
-            return (
-                work.Left + (_settings.PositionRatio * Math.Max(0d, work.Width - Width)),
-                work.Bottom - Height + SinkIntoTaskbar);
+            return;
         }
 
-        _taskbarEdge = taskbar.Edge;
+        OverlayWindow.MoveTo(_hwnd, x, y);
+    }
 
-        // タスクバーの座標は物理ピクセルなので DIP に直す
-        var left = taskbar.Left / _dpi.DpiScaleX;
-        var top = taskbar.Top / _dpi.DpiScaleY;
-        var right = taskbar.Right / _dpi.DpiScaleX;
-        var bottom = taskbar.Bottom / _dpi.DpiScaleY;
-        var spanX = Math.Max(0d, (right - left) - Width);
-        var spanY = Math.Max(0d, (bottom - top) - Height);
+    /// <summary>設定どおりの居場所（ウィンドウ左上）を求める。足場の線分も測り直す。</summary>
+    private (int X, int Y) ComputeHome()
+    {
+        var (width, height) = WindowPixelSize;
+        _rail = ComputeRail(TaskbarLocator.Locate(_settings.MonitorId), width, height);
+
+        var along = _rail.Start + (int)Math.Round(_settings.PositionRatio * _rail.Span(_rail.Horizontal ? width : height));
+        return _rail.Horizontal ? (along, _rail.Cross) : (_rail.Cross, along);
+    }
+
+    private Rail ComputeRail(TaskbarInfo? taskbar, int width, int height)
+    {
+        var sinkX = (int)Math.Round(SinkIntoTaskbar * _dpi.DpiScaleX);
+        var sinkY = (int)Math.Round(SinkIntoTaskbar * _dpi.DpiScaleY);
+
+        // 自動的に隠す設定だとタスクバーの矩形が画面外にあるので、そのモニタの作業領域の下端に立たせる
+        if (taskbar is null || taskbar.IsAutoHide)
+        {
+            var work = taskbar?.WorkArea
+                ?? TaskbarLocator.PrimaryWorkArea()
+                ?? new PixelRect(0, 0, width, height);
+
+            return new Rail(true, work.Left, work.Right, work.Bottom - height + sinkY);
+        }
+
+        var bar = taskbar.Bounds;
 
         return taskbar.Edge switch
         {
-            TaskbarEdge.Top => (left + (_settings.PositionRatio * spanX), bottom - SinkIntoTaskbar),
-            TaskbarEdge.Left => (right - SinkIntoTaskbar, top + (_settings.PositionRatio * spanY)),
-            TaskbarEdge.Right => (left - Width + SinkIntoTaskbar, top + (_settings.PositionRatio * spanY)),
-            _ => (left + (_settings.PositionRatio * spanX), top - Height + SinkIntoTaskbar),
+            TaskbarEdge.Top => new Rail(true, bar.Left, bar.Right, bar.Bottom - sinkY),
+            TaskbarEdge.Left => new Rail(false, bar.Top, bar.Bottom, bar.Right - sinkX),
+            TaskbarEdge.Right => new Rail(false, bar.Top, bar.Bottom, bar.Left - width + sinkX),
+            _ => new Rail(true, bar.Left, bar.Right, bar.Top - height + sinkY),
         };
     }
 
-    private bool IsHorizontalTaskbar => _taskbarEdge is TaskbarEdge.Bottom or TaskbarEdge.Top;
-
-    private double ComputeRatioFromPosition()
+    /// <summary>
+    /// ドラッグを離した位置から、どのモニタのどこに居着くかを決める。
+    /// ウィンドウの中心があるモニタにタスクバーがあればそこへ移り、無ければ今のモニタに留まる。
+    /// </summary>
+    private PetPlacement ComputePlacementFromPosition()
     {
-        var taskbar = TaskbarLocator.Locate();
-
-        if (taskbar is null || taskbar.IsAutoHide)
+        if (OverlayWindow.GetBounds(_hwnd) is not { } bounds)
         {
-            var work = SystemParameters.WorkArea;
-            return Clamp01((Left - work.Left) / Math.Max(1d, work.Width - Width));
+            return new PetPlacement(_settings.MonitorId, _settings.PositionRatio);
         }
 
-        var left = taskbar.Left / _dpi.DpiScaleX;
-        var top = taskbar.Top / _dpi.DpiScaleY;
-        var right = taskbar.Right / _dpi.DpiScaleX;
-        var bottom = taskbar.Bottom / _dpi.DpiScaleY;
+        var centreX = bounds.Left + (bounds.Width / 2);
+        var centreY = bounds.Top + (bounds.Height / 2);
 
-        return IsHorizontalTaskbar
-            ? Clamp01((Left - left) / Math.Max(1d, (right - left) - Width))
-            : Clamp01((Top - top) / Math.Max(1d, (bottom - top) - Height));
+        var taskbars = TaskbarLocator.LocateAll();
+        var target = TaskbarLocator.Locate(_settings.MonitorId);
+        foreach (var candidate in taskbars)
+        {
+            if (candidate.MonitorBounds.Contains(centreX, centreY))
+            {
+                target = candidate;
+                break;
+            }
+        }
+
+        var rail = ComputeRail(target, bounds.Width, bounds.Height);
+        var position = rail.Horizontal ? bounds.Left : bounds.Top;
+        var span = Math.Max(1, rail.Span(rail.Horizontal ? bounds.Width : bounds.Height));
+        var ratio = Math.Clamp((position - rail.Start) / (double)span, 0d, 1d);
+
+        // プライマリは名前で覚えない。プライマリを別のモニタに切り替えたときに付いていけるように
+        var monitorId = target is null || target.IsPrimary ? null : target.MonitorId;
+        return new PetPlacement(monitorId, ratio);
     }
-
-    private static double Clamp01(double value) => Math.Clamp(value, 0d, 1d);
 
     // --- フレーム更新 ---
 
@@ -269,8 +304,13 @@ public partial class PetWindow : Window
             return;
         }
 
-        var x = (cursor.Value.X / _dpi.DpiScaleX) - Left;
-        var y = (cursor.Value.Y / _dpi.DpiScaleY) - Top;
+        if (OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        {
+            return;
+        }
+
+        var x = (cursor.Value.X - bounds.Left) / _dpi.DpiScaleX;
+        var y = (cursor.Value.Y - bounds.Top) / _dpi.DpiScaleY;
 
         var inside = x >= 0d && y >= 0d && x < Width && y < Height;
         var overContent = inside && IsOverContent(new Point(x, y));
@@ -365,7 +405,7 @@ public partial class PetWindow : Window
         }
 
         var cursor = Pointer.TryGetPosition();
-        if (cursor is null)
+        if (cursor is null || OverlayWindow.GetBounds(_hwnd) is not { } bounds)
         {
             return;
         }
@@ -374,8 +414,7 @@ public partial class PetWindow : Window
         _dragMoved = false;
         _suppressClickAction = false;
         _dragStartCursor = cursor.Value;
-        _dragStartLeft = Left;
-        _dragStartTop = Top;
+        _dragStartWindow = (bounds.Left, bounds.Top);
 
         CaptureMouse();
         e.Handled = true;
@@ -396,10 +435,11 @@ public partial class PetWindow : Window
             return;
         }
 
-        var dx = (cursor.Value.X - _dragStartCursor.X) / _dpi.DpiScaleX;
-        var dy = (cursor.Value.Y - _dragStartCursor.Y) / _dpi.DpiScaleY;
+        var dx = cursor.Value.X - _dragStartCursor.X;
+        var dy = cursor.Value.Y - _dragStartCursor.Y;
 
-        if (!_dragMoved && (Math.Abs(dx) > DragThreshold || Math.Abs(dy) > DragThreshold))
+        if (!_dragMoved
+            && (Math.Abs(dx) > DragThreshold * _dpi.DpiScaleX || Math.Abs(dy) > DragThreshold * _dpi.DpiScaleY))
         {
             _dragMoved = true;
         }
@@ -409,14 +449,14 @@ public partial class PetWindow : Window
             return;
         }
 
-        // タスクバーに沿った方向にだけ動かす
-        if (IsHorizontalTaskbar)
+        // タスクバーに沿った方向にだけ動かす。隣のモニタまで引っ張れば、離したときにそちらへ移る
+        if (_rail.Horizontal)
         {
-            Left = _dragStartLeft + dx;
+            OverlayWindow.MoveTo(_hwnd, _dragStartWindow.X + dx, _dragStartWindow.Y);
         }
         else
         {
-            Top = _dragStartTop + dy;
+            OverlayWindow.MoveTo(_hwnd, _dragStartWindow.X, _dragStartWindow.Y + dy);
         }
     }
 
@@ -434,9 +474,9 @@ public partial class PetWindow : Window
 
         if (_dragMoved)
         {
-            var ratio = ComputeRatioFromPosition();
-            _settings = _settings with { PositionRatio = ratio };
-            PositionRatioChanged?.Invoke(this, ratio);
+            var placement = ComputePlacementFromPosition();
+            _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
+            PlacementChanged?.Invoke(this, placement);
             UpdatePosition();
         }
         else if (!_suppressClickAction)

@@ -12,18 +12,19 @@ public enum TaskbarEdge
 }
 
 /// <summary>タスクバーの位置情報。座標はすべて物理ピクセル。</summary>
+/// <param name="MonitorId">
+/// 載っているモニタのデバイス名 (<c>\.\DISPLAY2</c> など)。設定に保存してモニタを覚えるのに使う。
+/// </param>
+/// <param name="MonitorBounds">載っているモニタ全体。</param>
+/// <param name="WorkArea">載っているモニタの作業領域。自動的に隠す設定のときの足場になる。</param>
 public sealed record TaskbarInfo(
     TaskbarEdge Edge,
-    int Left,
-    int Top,
-    int Right,
-    int Bottom,
-    bool IsAutoHide)
-{
-    public int Width => Right - Left;
-
-    public int Height => Bottom - Top;
-}
+    PixelRect Bounds,
+    bool IsAutoHide,
+    string MonitorId,
+    bool IsPrimary,
+    PixelRect MonitorBounds,
+    PixelRect WorkArea);
 
 /// <summary>
 /// タスクバーの位置を取得する。ユーザーがタスクバーを左右上に動かしたり自動的に隠す設定にしても
@@ -31,37 +32,70 @@ public sealed record TaskbarInfo(
 /// </summary>
 public static class TaskbarLocator
 {
-    /// <summary>
-    /// プライマリモニタのタスクバー情報を返す。取得できなければ null。
-    /// </summary>
-    /// <remarks>
-    /// ABM_GETTASKBARPOS はプライマリのタスクバーしか返さない。
-    /// サブモニタのタスクバーに乗せたい場合は Shell_SecondaryTrayWnd を EnumWindows で
-    /// 探す必要があるが、v1 では対象外としている。
-    /// </remarks>
-    public static TaskbarInfo? Locate()
-    {
-        var data = new NativeMethods.APPBARDATA
-        {
-            cbSize = (uint)Marshal.SizeOf<NativeMethods.APPBARDATA>(),
-        };
+    private const string PrimaryClass = "Shell_TrayWnd";
 
-        var result = NativeMethods.SHAppBarMessage(NativeMethods.ABM_GETTASKBARPOS, ref data);
-        if (result != IntPtr.Zero)
+    /// <summary>「タスクバーをすべてのディスプレイに表示する」が有効なときだけ、サブモニタごとに 1 つ存在する。</summary>
+    private const string SecondaryClass = "Shell_SecondaryTrayWnd";
+
+    /// <summary>
+    /// すべてのモニタのタスクバーを返す。プライマリが取れた場合は必ず先頭。
+    /// </summary>
+    public static IReadOnlyList<TaskbarInfo> LocateAll()
+    {
+        var autoHide = IsAutoHide();
+        var result = new List<TaskbarInfo>();
+
+        if (LocatePrimary(autoHide) is { } primary)
         {
-            return new TaskbarInfo(
-                (TaskbarEdge)data.uEdge,
-                data.rc.Left,
-                data.rc.Top,
-                data.rc.Right,
-                data.rc.Bottom,
-                IsAutoHide());
+            result.Add(primary);
         }
 
-        return LocateByWindowHandle();
+        // ABM_GETTASKBARPOS はプライマリしか返さないので、サブモニタの分はウィンドウを直接探す
+        var hwnd = IntPtr.Zero;
+        while ((hwnd = NativeMethods.FindWindowEx(IntPtr.Zero, hwnd, SecondaryClass, null)) != IntPtr.Zero)
+        {
+            if (NativeMethods.IsWindowVisible(hwnd) && FromWindow(hwnd, autoHide) is { } secondary)
+            {
+                result.Add(secondary);
+            }
+        }
+
+        return result;
     }
 
-    /// <summary>タスクバーが「自動的に隠す」設定になっているか。</summary>
+    /// <summary>
+    /// 指定したモニタのタスクバーを返す。見つからなければプライマリ、それも無ければ null。
+    /// モニタを外した・「すべてのディスプレイに表示」を切った、のどちらでもプライマリに戻ってくる。
+    /// </summary>
+    public static TaskbarInfo? Locate(string? monitorId = null)
+    {
+        var all = LocateAll();
+
+        if (monitorId is not null)
+        {
+            foreach (var taskbar in all)
+            {
+                if (string.Equals(taskbar.MonitorId, monitorId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return taskbar;
+                }
+            }
+        }
+
+        return all.Count > 0 ? all[0] : null;
+    }
+
+    /// <summary>プライマリモニタの作業領域。タスクバーが見つからないときの足場。</summary>
+    public static PixelRect? PrimaryWorkArea()
+    {
+        // 無効なハンドルに DEFAULTTOPRIMARY を付けるとプライマリが返る
+        var monitor = NativeMethods.MonitorFromWindow(IntPtr.Zero, NativeMethods.MONITOR_DEFAULTTOPRIMARY);
+        return TryGetMonitorInfo(monitor, out var info) ? PixelRect.From(info.rcWork) : null;
+    }
+
+    /// <summary>
+    /// タスクバーが「自動的に隠す」設定になっているか。Windows 10 / 11 では全モニタ共通の設定。
+    /// </summary>
     public static bool IsAutoHide()
     {
         var data = new NativeMethods.APPBARDATA
@@ -73,20 +107,84 @@ public static class TaskbarLocator
         return (state & NativeMethods.ABS_AUTOHIDE) != 0;
     }
 
-    /// <summary>ABM_GETTASKBARPOS が失敗したときのフォールバック。</summary>
-    private static TaskbarInfo? LocateByWindowHandle()
+    private static TaskbarInfo? LocatePrimary(bool autoHide)
     {
-        var hwnd = NativeMethods.FindWindow("Shell_TrayWnd", null);
-        if (hwnd == IntPtr.Zero || !NativeMethods.GetWindowRect(hwnd, out var rect))
+        var data = new NativeMethods.APPBARDATA
+        {
+            cbSize = (uint)Marshal.SizeOf<NativeMethods.APPBARDATA>(),
+        };
+
+        var result = NativeMethods.SHAppBarMessage(NativeMethods.ABM_GETTASKBARPOS, ref data);
+        if (result != IntPtr.Zero)
+        {
+            var rect = data.rc;
+            var monitor = NativeMethods.MonitorFromRect(ref rect, NativeMethods.MONITOR_DEFAULTTOPRIMARY);
+            if (TryGetMonitorInfo(monitor, out var info))
+            {
+                return Create((TaskbarEdge)data.uEdge, rect, info, autoHide);
+            }
+        }
+
+        // ABM_GETTASKBARPOS が失敗したときのフォールバック
+        var hwnd = NativeMethods.FindWindow(PrimaryClass, null);
+        return hwnd == IntPtr.Zero ? null : FromWindow(hwnd, autoHide);
+    }
+
+    private static TaskbarInfo? FromWindow(IntPtr hwnd, bool autoHide)
+    {
+        if (!NativeMethods.GetWindowRect(hwnd, out var rect))
         {
             return null;
         }
 
-        // 矩形の縦横比から辺を推測する。横長なら上下、縦長なら左右。
-        var edge = rect.Width >= rect.Height
-            ? (rect.Top <= 0 ? TaskbarEdge.Top : TaskbarEdge.Bottom)
-            : (rect.Left <= 0 ? TaskbarEdge.Left : TaskbarEdge.Right);
+        var monitor = NativeMethods.MonitorFromWindow(hwnd, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        if (!TryGetMonitorInfo(monitor, out var info))
+        {
+            return null;
+        }
 
-        return new TaskbarInfo(edge, rect.Left, rect.Top, rect.Right, rect.Bottom, IsAutoHide());
+        return Create(InferEdge(rect, info.rcMonitor), rect, info, autoHide);
+    }
+
+    /// <summary>
+    /// 矩形の縦横比とモニタ内での寄りから辺を推測する。横長なら上下、縦長なら左右。
+    /// 仮想デスクトップの原点ではなくモニタの矩形と比べないと、サブモニタで必ず外す。
+    /// </summary>
+    private static TaskbarEdge InferEdge(NativeMethods.RECT taskbar, NativeMethods.RECT monitor)
+    {
+        if (taskbar.Width >= taskbar.Height)
+        {
+            var distanceToTop = Math.Abs(taskbar.Top - monitor.Top);
+            var distanceToBottom = Math.Abs(monitor.Bottom - taskbar.Bottom);
+            return distanceToTop < distanceToBottom ? TaskbarEdge.Top : TaskbarEdge.Bottom;
+        }
+
+        var distanceToLeft = Math.Abs(taskbar.Left - monitor.Left);
+        var distanceToRight = Math.Abs(monitor.Right - taskbar.Right);
+        return distanceToLeft < distanceToRight ? TaskbarEdge.Left : TaskbarEdge.Right;
+    }
+
+    private static TaskbarInfo Create(
+        TaskbarEdge edge,
+        NativeMethods.RECT rect,
+        NativeMethods.MONITORINFOEX monitor,
+        bool autoHide) =>
+        new(
+            edge,
+            PixelRect.From(rect),
+            autoHide,
+            monitor.szDevice ?? string.Empty,
+            (monitor.dwFlags & NativeMethods.MONITORINFOF_PRIMARY) != 0,
+            PixelRect.From(monitor.rcMonitor),
+            PixelRect.From(monitor.rcWork));
+
+    private static bool TryGetMonitorInfo(IntPtr monitor, out NativeMethods.MONITORINFOEX info)
+    {
+        info = new NativeMethods.MONITORINFOEX
+        {
+            cbSize = (uint)Marshal.SizeOf<NativeMethods.MONITORINFOEX>(),
+        };
+
+        return monitor != IntPtr.Zero && NativeMethods.GetMonitorInfo(monitor, ref info);
     }
 }

@@ -65,7 +65,7 @@ public partial class App : Application
         window.PetRequested += (_, _) => Pet();
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
         window.ExitRequested += (_, _) => Shutdown();
-        window.PositionRatioChanged += OnPositionRatioChanged;
+        window.PlacementChanged += OnPlacementChanged;
         window.Initialize(session.State, _settings);
         window.Show();
 
@@ -161,9 +161,9 @@ public partial class App : Application
             $"{days} 日以上ぶりですね。そのあいだの時間は打ち切ってあるので、手遅れにはなっていません。");
     }
 
-    private void OnPositionRatioChanged(object? sender, double ratio)
+    private void OnPlacementChanged(object? sender, PetPlacement placement)
     {
-        _settings = _settings with { PositionRatio = ratio };
+        _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
         _settingsStore?.Save(_settings);
     }
 
