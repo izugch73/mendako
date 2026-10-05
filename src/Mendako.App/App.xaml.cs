@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Windows;
-using Mendako.App.Behavior;
+using Mendako.Core.Behavior;
 using Mendako.App.Services;
 using Mendako.App.Views;
 using Mendako.Core.Model;

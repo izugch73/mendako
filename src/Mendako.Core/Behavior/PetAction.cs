@@ -1,4 +1,4 @@
-namespace Mendako.App.Behavior;
+namespace Mendako.Core.Behavior;
 
 /// <summary>ユーザー操作に対する一時的なリアクション。</summary>
 public enum PetAction

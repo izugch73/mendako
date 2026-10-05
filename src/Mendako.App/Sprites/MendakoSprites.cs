@@ -2,34 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Mendako.Core.Behavior;
 using Mendako.Core.Model;
 
 namespace Mendako.App.Sprites;
-
-/// <summary>耳ビレの位置。パタパタは Up と Mid の 2 コマで回す。</summary>
-public enum FinPose
-{
-    /// <summary>持ち上がっている。</summary>
-    Up,
-
-    /// <summary>ふつう。</summary>
-    Mid,
-
-    /// <summary>垂れている。しょんぼり・就寝時。</summary>
-    Droop,
-}
-
-/// <summary>目の状態。</summary>
-public enum EyePose
-{
-    Open,
-
-    /// <summary>閉じている。まばたきと就寝。</summary>
-    Closed,
-
-    /// <summary>にっこり。</summary>
-    Happy,
-}
 
 /// <summary>
 /// メンダコのドット絵。1 ドット = 1 文字で書いてあり、実行時にビットマップへ展開する。

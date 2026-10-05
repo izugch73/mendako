@@ -1,8 +1,6 @@
-using System;
-using Mendako.App.Sprites;
 using Mendako.Core.Model;
 
-namespace Mendako.App.Behavior;
+namespace Mendako.Core.Behavior;
 
 /// <summary>
 /// 状態と経過時間からコマを選ぶ。描画・Win32 に依存しないので単体でテストできる。

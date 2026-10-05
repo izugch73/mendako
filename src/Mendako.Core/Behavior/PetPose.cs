@@ -1,6 +1,4 @@
-using Mendako.App.Sprites;
-
-namespace Mendako.App.Behavior;
+namespace Mendako.Core.Behavior;
 
 /// <summary>
 /// 1 フレーム分の見た目。ドット絵なので、回転や非整数の拡縮は持たせず

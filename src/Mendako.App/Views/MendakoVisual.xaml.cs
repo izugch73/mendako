@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
-using Mendako.App.Behavior;
+using Mendako.Core.Behavior;
 using Mendako.App.Sprites;
 using Mendako.Core.Model;
 
