@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Mendako.Core.Behavior;
 using Mendako.App.Sprites;
 using Mendako.Core.Model;
@@ -58,6 +59,19 @@ public partial class MendakoVisual : UserControl
 
         UpdateSleepMark(pose.ShowSleepMark, spriteWidth);
         UpdateHeart(pose.ShowHeart, spriteWidth);
+    }
+
+    /// <summary>
+    /// WPF のヒットテストにも、ドットのある場所だけを当たりとして返す。
+    /// これが無いとクリックがウィンドウに届いても配る相手がおらず、マウスイベントが発火しない。
+    /// </summary>
+    protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters)
+    {
+        ArgumentNullException.ThrowIfNull(hitTestParameters);
+
+        return HitTestSprite(hitTestParameters.HitPoint)
+            ? new PointHitTestResult(this, hitTestParameters.HitPoint)
+            : null;
     }
 
     /// <summary>

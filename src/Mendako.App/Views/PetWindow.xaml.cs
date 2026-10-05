@@ -407,18 +407,9 @@ public partial class PetWindow : Window
 
     /// <summary>
     /// メンダコ本体（ドットのアルファ基準）かステータスカードの上にいるか。
-    /// MendakoVisual は IsHitTestVisible を落としてあるので、
-    /// VisualTreeHelper が拾うのはカードだけになる。
+    /// 本体の判定は MendakoVisual.HitTestCore が受け持つので、ここでは WPF に聞くだけでよい。
     /// </summary>
-    private bool IsOverContent(Point point)
-    {
-        if (VisualTreeHelper.HitTest(RootGrid, point) is not null)
-        {
-            return true;
-        }
-
-        return Visual.HitTestSprite(RootGrid.TranslatePoint(point, Visual));
-    }
+    private bool IsOverContent(Point point) => VisualTreeHelper.HitTest(RootGrid, point) is not null;
 
     private void ApplyClickThrough(bool enabled)
     {
