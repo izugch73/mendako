@@ -35,6 +35,11 @@
             <MenuItem x:Name="PetMenuItem" Header="なでる" Click="OnPetClick" />
             <MenuItem x:Name="SleepMenuItem" Header="寝かせる" Click="OnSleepToggleClick" />
             <Separator />
+            <MenuItem x:Name="HideOnFullScreenMenuItem"
+                      Header="全画面アプリ中は隠す"
+                      IsCheckable="True"
+                      Click="OnHideOnFullScreenClick" />
+            <Separator />
             <MenuItem Header="終了" Click="OnExitClick" />
         </ContextMenu>
     </Window.ContextMenu>

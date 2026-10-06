@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Mendako.Platform;
 
 /// <summary>ユーザーの状況。オーバーレイを引っ込めるべきかの判断に使う。</summary>
@@ -48,11 +50,54 @@ public static class UserPresence
     }
 
     /// <summary>オーバーレイを隠すべきか。判定できないときは表示側に倒す。</summary>
-    public static bool ShouldHideOverlay() => Query() switch
+    /// <param name="overlay">
+    /// オーバーレイのウィンドウ。渡すと、全画面アプリが別のモニタにいるときは隠さない。
+    /// </param>
+    public static bool ShouldHideOverlay(IntPtr overlay = default) => Query() switch
     {
-        PresenceState.FullScreenApp => true,
         PresenceState.Presentation => true,
-        PresenceState.Busy => true,
+        PresenceState.FullScreenApp or PresenceState.Busy => !IsFullScreenElsewhere(overlay),
         _ => false,
     };
+
+    /// <summary>
+    /// 全画面アプリがオーバーレイとは別のモニタにいるか。
+    /// SHQueryUserNotificationState は全体でひとつの値しか返さないので、どのモニタの話かは
+    /// 最前面のウィンドウから割り出す。割り出せないときは false (= 隠す側) に倒す。
+    /// ゲームの上に出てしまうより、いないほうがまし。
+    /// </summary>
+    private static bool IsFullScreenElsewhere(IntPtr overlay)
+    {
+        if (overlay == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var foreground = NativeMethods.GetForegroundWindow();
+        if (foreground == IntPtr.Zero || !NativeMethods.GetWindowRect(foreground, out var rect))
+        {
+            return false;
+        }
+
+        var monitor = NativeMethods.MonitorFromWindow(foreground, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        var info = new NativeMethods.MONITORINFOEX
+        {
+            cbSize = (uint)Marshal.SizeOf<NativeMethods.MONITORINFOEX>(),
+        };
+
+        if (monitor == IntPtr.Zero || !NativeMethods.GetMonitorInfo(monitor, ref info))
+        {
+            return false;
+        }
+
+        // 最前面のウィンドウがモニタを覆っていなければ、全画面の持ち主はそれではない
+        var screen = info.rcMonitor;
+        var covers = rect.Left <= screen.Left
+            && rect.Top <= screen.Top
+            && rect.Right >= screen.Right
+            && rect.Bottom >= screen.Bottom;
+
+        return covers
+            && monitor != NativeMethods.MonitorFromWindow(overlay, NativeMethods.MONITOR_DEFAULTTONEAREST);
+    }
 }

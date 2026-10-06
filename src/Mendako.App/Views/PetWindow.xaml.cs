@@ -96,18 +96,23 @@ public partial class PetWindow : Window
 
     public event EventHandler? ExitRequested;
 
+    /// <summary>右クリックメニューで「全画面アプリ中は隠す」を切り替えた。</summary>
+    public event EventHandler<bool>? HideOnFullScreenChanged;
+
     /// <summary>ドラッグで居場所が変わったときに発火する。</summary>
     public event EventHandler<PetPlacement>? PlacementChanged;
 
     public void Initialize(MendakoState state, AppSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        HideOnFullScreenMenuItem.IsChecked = _settings.HideOnFullScreen;
         UpdateState(state);
     }
 
     public void UpdateSettings(AppSettings settings)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        HideOnFullScreenMenuItem.IsChecked = _settings.HideOnFullScreen;
         RefreshStatusCardVisibility();
         UpdatePosition();
     }
@@ -463,10 +468,10 @@ public partial class PetWindow : Window
         UpdatePresenceVisibility();
     }
 
-    /// <summary>全画面ゲームやプレゼン中は引っ込む。</summary>
+    /// <summary>全画面ゲームやプレゼン中は引っ込む。ゲームが別のモニタにいるなら、そのまま居てよい。</summary>
     private void UpdatePresenceVisibility()
     {
-        var shouldHide = _settings.HideOnFullScreen && UserPresence.ShouldHideOverlay();
+        var shouldHide = _settings.HideOnFullScreen && UserPresence.ShouldHideOverlay(_hwnd);
         if (shouldHide == _hiddenForPresence)
         {
             return;
@@ -691,6 +696,9 @@ public partial class PetWindow : Window
     private void OnSleepToggleClick(object sender, RoutedEventArgs e) => SleepToggleRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnExitClick(object sender, RoutedEventArgs e) => ExitRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnHideOnFullScreenClick(object sender, RoutedEventArgs e) =>
+        HideOnFullScreenChanged?.Invoke(this, HideOnFullScreenMenuItem.IsChecked);
 
     // --- ステータスカード ---
 

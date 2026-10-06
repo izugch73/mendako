@@ -64,6 +64,7 @@ public partial class App : Application
         window.FeedRequested += (_, _) => Feed();
         window.PetRequested += (_, _) => Pet();
         window.PokeRequested += (_, _) => Poke();
+        window.HideOnFullScreenChanged += OnHideOnFullScreenChanged;
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
         window.ExitRequested += (_, _) => Shutdown();
         window.PlacementChanged += OnPlacementChanged;
@@ -196,6 +197,9 @@ public partial class App : Application
         _settings = _settings with { HideOnFullScreen = enabled };
         _settingsStore?.Save(_settings);
         _window?.UpdateSettings(_settings);
+
+        // トレイと本体の右クリックメニュー、どちらで切り替えても両方のチェックを揃える
+        _tray?.InitializeToggles(AutoStart.IsEnabled(), enabled);
     }
 
     private void OnSessionEnding(object? sender, SessionEndingEventArgs e) => _session?.SaveNow();
