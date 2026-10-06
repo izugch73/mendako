@@ -463,10 +463,10 @@ public partial class PetWindow : Window
         UpdatePresenceVisibility();
     }
 
-    /// <summary>全画面ゲームやプレゼン中は引っ込む。</summary>
+    /// <summary>全画面ゲームやプレゼン中は引っ込む。ゲームが別のモニタにいるなら、そのまま居てよい。</summary>
     private void UpdatePresenceVisibility()
     {
-        var shouldHide = _settings.HideOnFullScreen && UserPresence.ShouldHideOverlay();
+        var shouldHide = _settings.HideOnFullScreen && UserPresence.ShouldHideOverlay(_hwnd);
         if (shouldHide == _hiddenForPresence)
         {
             return;
