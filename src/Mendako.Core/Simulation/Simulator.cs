@@ -13,11 +13,13 @@ public static class Simulator
     /// アプリが動いていなかった時間もここでまとめて消化される (オフライン進行)。
     /// </summary>
     /// <param name="timeZone">昼夜の判定に使うタイムゾーン。テストでは <see cref="TimeZoneInfo.Utc"/> を渡す。</param>
+    /// <param name="random">拾うアイテムの抽選に使う乱数。テストではシードを固定したものを渡す。</param>
     public static AdvanceOutcome Advance(
         MendakoState state,
         DateTimeOffset nowUtc,
         TimeZoneInfo timeZone,
-        SimulationConfig? config = null)
+        SimulationConfig? config = null,
+        Random? random = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(timeZone);
@@ -56,6 +58,7 @@ public static class Simulator
         var asleep = state.IsAsleep;
         var fellAsleep = false;
         var wokeUp = false;
+        DateTimeOffset? elderSince = null;
 
         for (long i = 0; i < applied; i++)
         {
@@ -85,7 +88,15 @@ public static class Simulator
             affection = Math.Clamp(affection - config.AffectionDecayPerTick, 0d, 100d);
 
             growth += GrowthPerTick(satiety, energy, affection, asleep, config);
+
+            if (elderSince is null && stageBefore < GrowthStage.Elder && GrowthStages.FromGrowth(growth) >= GrowthStage.Elder)
+            {
+                elderSince = tickAt.AddMinutes(tickMinutes);
+            }
         }
+
+        var end = state.LastTickUtc.AddMinutes(totalTicks * tickMinutes);
+        var forage = ResolveForage(state, stageBefore, simStart, elderSince, end, config, random);
 
         var next = state with
         {
@@ -98,8 +109,12 @@ public static class Simulator
 
             // 打ち切った分も含めて基準時刻は現在まで進める。
             // 端数 (1 ティック未満) は次回に持ち越されるので時間が失われない。
-            LastTickUtc = state.LastTickUtc.AddMinutes(totalTicks * tickMinutes),
+            LastTickUtc = end,
             LastSkippedMinutes = (long)(skipped * tickMinutes),
+            Items = forage.Foraged.Count == 0
+                ? state.Items
+                : state.Items.Concat(forage.Foraged.Select(f => f.Item)).ToArray(),
+            LastForageUtc = forage.LastForageUtc ?? state.LastForageUtc,
         };
 
         return new AdvanceOutcome(next, applied, skipped)
@@ -107,7 +122,40 @@ public static class Simulator
             StageAdvancedTo = next.Stage > stageBefore ? next.Stage : null,
             FellAsleep = fellAsleep && !asleepBefore,
             WokeUp = wokeUp && asleepBefore,
+            Foraged = forage.Foraged,
+            ForageMissed = forage.Missed,
         };
+    }
+
+    /// <summary>
+    /// ぬしの間だけ拾う。ぬしになる前の時間は数えない。
+    /// 起動前から Elder で基準時刻が無い保存データは、オフライン進行の起点から数え始める。
+    /// </summary>
+    private static Foraging.Result ResolveForage(
+        MendakoState state,
+        GrowthStage stageBefore,
+        DateTimeOffset simStart,
+        DateTimeOffset? elderSince,
+        DateTimeOffset end,
+        SimulationConfig config,
+        Random? random)
+    {
+        DateTimeOffset anchor;
+        if (stageBefore >= GrowthStage.Elder)
+        {
+            anchor = state.LastForageUtc ?? simStart;
+        }
+        else if (elderSince is { } since)
+        {
+            anchor = since;
+        }
+        else
+        {
+            return new Foraging.Result(Array.Empty<ForagedItem>(), 0, null);
+        }
+
+        var free = config.MaxInventoryItems - state.Items.Count;
+        return Foraging.Resolve(anchor, simStart, end, free, config, random ?? Random.Shared);
     }
 
     /// <summary>エサをあげる。</summary>

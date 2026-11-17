@@ -49,6 +49,24 @@ public sealed record MendakoState
     /// </summary>
     public long LastSkippedMinutes { get; init; }
 
+    /// <summary>かいがら (お金)。</summary>
+    public int Shells { get; init; }
+
+    /// <summary>持ち物。同じアイテムも 1 個ずつ並べる。新しい項目なので、無い保存データは空として読む。</summary>
+    public IReadOnlyList<ItemId> Items { get; init; } = Array.Empty<ItemId>();
+
+    /// <summary>
+    /// 最後に拾う機会があった時刻。持ち物がいっぱいで拾えなかった分も含む。
+    /// ぬしになった時刻から数え始め、次に拾う時刻はここから <see cref="Simulation.SimulationConfig.ForageInterval"/> 後になる。
+    /// </summary>
+    public DateTimeOffset? LastForageUtc { get; init; }
+
+    /// <summary>持っている飾り。<see cref="Accessory.None"/> は含めない。</summary>
+    public IReadOnlyList<Accessory> OwnedAccessories { get; init; } = Array.Empty<Accessory>();
+
+    /// <summary>付けている飾り。持っている飾りの中から選ぶ。</summary>
+    public Accessory EquippedAccessory { get; init; } = Accessory.None;
+
     [JsonIgnore]
     public GrowthStage Stage => GrowthStages.FromGrowth(Growth);
 
