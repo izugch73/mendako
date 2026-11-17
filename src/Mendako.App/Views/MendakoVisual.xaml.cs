@@ -21,8 +21,7 @@ public partial class MendakoVisual : UserControl
     private IReadOnlyList<string> _currentRows = Array.Empty<string>();
     private double _spriteLeft;
     private double _spriteTop;
-    private int _pixelScale = 3;
-    private int _markScale = 4;
+    private int _pixelScale = 6;
 
     public MendakoVisual()
     {
@@ -40,7 +39,6 @@ public partial class MendakoVisual : UserControl
         var frame = MendakoSprites.Get(state.Stage, pose.Fin, pose.Eyes, pose.GazeDots, pose.Flat);
         _currentRows = frame.Rows;
         _pixelScale = MendakoSprites.PixelScale(state.Stage);
-        _markScale = MendakoSprites.MarkPixelScale(state.Stage);
 
         var spriteWidth = MendakoSprites.Width * _pixelScale;
         var spriteHeight = MendakoSprites.Height * _pixelScale;
@@ -112,7 +110,7 @@ public partial class MendakoVisual : UserControl
             return;
         }
 
-        var scale = _markScale;
+        var scale = Math.Max(2, _pixelScale - 2);
         SleepMarkImage.Source = MendakoSprites.GetSleepMark();
         SleepMarkImage.Width = 3 * scale;
         SleepMarkImage.Height = 3 * scale;
@@ -129,7 +127,7 @@ public partial class MendakoVisual : UserControl
             return;
         }
 
-        var scale = _markScale;
+        var scale = Math.Max(2, _pixelScale - 2);
         HeartImage.Source = MendakoSprites.GetHeart();
         HeartImage.Width = 5 * scale;
         HeartImage.Height = 5 * scale;

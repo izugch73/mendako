@@ -11,16 +11,16 @@ public sealed class BehaviorMachine
     private const double BlinkDuration = 0.18d;
 
     /// <summary>これより遠いカーソルは目で追わない。画面の反対側まで見ていると落ち着きがない。</summary>
-    private const double GazeRangeDots = 100d;
+    private const double GazeRangeDots = 45d;
 
     /// <summary>真上・真下にいるカーソルは正面を見る。</summary>
-    private const double GazeDeadZoneDots = 7d;
+    private const double GazeDeadZoneDots = 3d;
 
     /// <summary>泳ぐ速さの上限（ドット / 秒）。</summary>
-    private const double SwimSpeed = 11d;
+    private const double SwimSpeed = 5d;
 
     /// <summary>これより狭い側には泳ぎ出さない。</summary>
-    private const double MinSwimRoomDots = 13d;
+    private const double MinSwimRoomDots = 6d;
 
     private readonly Random _random;
 
@@ -152,19 +152,19 @@ public sealed class BehaviorMachine
             Fin = droops ? FinPose.Droop : flap > 0d ? FinPose.Up : FinPose.Mid,
             Eyes = EyePose.Open,
             BobDots = Math.Sin(_time * speed * 1.05d) * bobDots,
-            DriftDots = Math.Sin(_time * speed * 0.31d) * 1.3d,
+            DriftDots = Math.Sin(_time * speed * 0.31d) * 0.6d,
         };
     }
 
     private static (double BobDots, double Speed, bool Droops) IdleParameters(Mood mood) => mood switch
     {
-        Mood.Happy => (3.5d, 1.35d, false),
-        Mood.Content => (2.6d, 1.0d, false),
-        Mood.Hungry => (2.0d, 0.8d, false),
-        Mood.Sleepy => (1.5d, 0.6d, true),
-        Mood.Lonely => (2.0d, 0.7d, false),
-        Mood.Gloomy => (1.3d, 0.5d, true),
-        _ => (2.6d, 1.0d, false),
+        Mood.Happy => (1.6d, 1.35d, false),
+        Mood.Content => (1.2d, 1.0d, false),
+        Mood.Hungry => (0.9d, 0.8d, false),
+        Mood.Sleepy => (0.7d, 0.6d, true),
+        Mood.Lonely => (0.9d, 0.7d, false),
+        Mood.Gloomy => (0.6d, 0.5d, true),
+        _ => (1.2d, 1.0d, false),
     };
 
     /// <summary>近くにあるカーソルのほうへ目を向ける。</summary>
@@ -190,7 +190,7 @@ public sealed class BehaviorMachine
     {
         Fin = FinPose.Droop,
         Eyes = EyePose.Closed,
-        BobDots = Math.Sin(_time * 0.45d) * 1.8d,
+        BobDots = Math.Sin(_time * 0.45d) * 0.8d,
         ShowSleepMark = true,
     };
 
@@ -206,7 +206,7 @@ public sealed class BehaviorMachine
         {
             Fin = chew > 0d ? FinPose.Up : FinPose.Mid,
             Eyes = EyePose.Closed,
-            BobDots = chew > 0d ? -2d : 0d,
+            BobDots = chew > 0d ? -1d : 0d,
         };
     }
 
@@ -214,7 +214,7 @@ public sealed class BehaviorMachine
     {
         Fin = Math.Sin(Elapsed * 12d) > 0d ? FinPose.Up : FinPose.Mid,
         Eyes = EyePose.Happy,
-        BobDots = -Math.Abs(Math.Sin(Elapsed * 5d)) * 4.4d,
+        BobDots = -Math.Abs(Math.Sin(Elapsed * 5d)) * 2d,
         ShowHeart = true,
     };
 
@@ -222,14 +222,14 @@ public sealed class BehaviorMachine
     {
         Fin = FinPose.Droop,
         Eyes = EyePose.Closed,
-        DriftDots = Math.Sin(Elapsed * 16d) * 2.6d,
+        DriftDots = Math.Sin(Elapsed * 16d) * 1.2d,
     };
 
     private PetPose EvolvingPose() => new()
     {
         Fin = Math.Sin(Elapsed * 9d) > 0d ? FinPose.Up : FinPose.Mid,
         Eyes = EyePose.Happy,
-        BobDots = -Math.Abs(Math.Sin(Elapsed * 3d)) * 6.6d,
+        BobDots = -Math.Abs(Math.Sin(Elapsed * 3d)) * 3d,
         ShowHeart = true,
     };
 
@@ -239,7 +239,7 @@ public sealed class BehaviorMachine
         Eyes = EyePose.Surprised,
 
         // ぴょんと跳ねて、すぐ降りる
-        BobDots = -Math.Sin(Math.Min(1d, Elapsed / 0.3d) * Math.PI) * 6.6d,
+        BobDots = -Math.Sin(Math.Min(1d, Elapsed / 0.3d) * Math.PI) * 3d,
     };
 
     // --- つまみ上げ ---
@@ -249,7 +249,7 @@ public sealed class BehaviorMachine
         // じたばた
         Fin = Math.Sin(Elapsed * 18d) > 0d ? FinPose.Up : FinPose.Mid,
         Eyes = EyePose.Surprised,
-        DriftDots = Math.Sin(Elapsed * 9d) * 1.8d,
+        DriftDots = Math.Sin(Elapsed * 9d) * 0.8d,
     };
 
     private PetPose FallingPose() => new()
@@ -257,7 +257,7 @@ public sealed class BehaviorMachine
         // 傘を広げて、ゆらゆら揺れながら降りる
         Fin = FinPose.Up,
         Eyes = EyePose.Open,
-        DriftDots = Math.Sin(Elapsed * 2.2d) * 4.4d,
+        DriftDots = Math.Sin(Elapsed * 2.2d) * 2d,
     };
 
     private static PetPose LandingPose() => new()
@@ -349,7 +349,7 @@ public sealed class BehaviorMachine
     {
         Fin = Math.Sin(Elapsed * 26d) > 0d ? FinPose.Up : FinPose.Mid,
         Eyes = EyePose.Open,
-        BobDots = -Math.Abs(Math.Sin(Elapsed * 8d)) * 3.3d,
+        BobDots = -Math.Abs(Math.Sin(Elapsed * 8d)) * 1.5d,
     };
 
     private PetPose YawningPose()
@@ -363,7 +363,7 @@ public sealed class BehaviorMachine
         {
             Fin = stretching ? FinPose.Up : FinPose.Droop,
             Eyes = EyePose.Closed,
-            BobDots = stretching ? -Math.Sin(Elapsed / StretchSeconds * Math.PI) * 4.4d : 0d,
+            BobDots = stretching ? -Math.Sin(Elapsed / StretchSeconds * Math.PI) * 2d : 0d,
         };
     }
 
@@ -375,7 +375,7 @@ public sealed class BehaviorMachine
     };
 
     private PetPose WobblingPose(Mood mood) =>
-        IdlePose(mood) with { DriftDots = Math.Sin(Elapsed * 18d) * 2.2d };
+        IdlePose(mood) with { DriftDots = Math.Sin(Elapsed * 18d) };
 
     private PetPose SwimmingPose(double delta, BehaviorInput input)
     {
@@ -401,7 +401,7 @@ public sealed class BehaviorMachine
             Fin = Math.Sin(Elapsed * 10d) > 0d ? FinPose.Up : FinPose.Mid,
             Eyes = EyePose.Open,
             GazeDots = input.VerticalRail ? 0 : _swimDirection,
-            BobDots = -stroke * 4.4d,
+            BobDots = -stroke * 2d,
             TravelDots = travel * _swimDirection,
         };
     }
