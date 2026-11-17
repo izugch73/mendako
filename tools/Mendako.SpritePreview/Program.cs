@@ -12,7 +12,7 @@ namespace Mendako.SpritePreview;
 internal static class Program
 {
     private const string Usage =
-        "使い方: Mendako.SpritePreview <出力.png> [--sheet frames|motion] [--stage Egg|Hatchling|Juvenile|Adult|Elder] [--zoom N] [--section 番号,...]";
+        "使い方: Mendako.SpritePreview <出力.png> [--sheet frames|motion|accessories|accessories-visual] [--stage Egg|Hatchling|Juvenile|Adult|Elder] [--zoom N] [--section 番号,...]";
 
     [STAThread]
     private static int Main(string[] args)

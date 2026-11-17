@@ -1,8 +1,8 @@
 <UserControl x:Class="Mendako.App.Views.MendakoVisual"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Width="160"
-             Height="150"
+             Width="184"
+             Height="186"
              Background="{x:Null}"
              RenderOptions.BitmapScalingMode="NearestNeighbor"
              RenderOptions.EdgeMode="Aliased"
@@ -17,10 +17,16 @@
         矩形全体でヒットしてしまうため。あたり判定はこのコントロール自身が HitTestCore で
         ドットのアルファを見て返す。ここを丸ごと無効にすると、本体をクリックしても
         WPF がマウスイベントを誰にも配らなくなる。
+
+        枠 (184×186) は絵より大きく余白が多く見えるが、詰めてはいけない。Elder (1 ドット 7 DIP) が
+        飾りを付けて BobDots -3 まで跳ねたときと DriftDots ±2 まで揺れたときに、ここからはみ出さない
+        大きさにしてある。高さを変えるときは FootY も同じだけ動かし、足元を枠の下端から 18 DIP に保つ。
+        PetWindow はこの枠を下揃えで置いているので、そうすればタスクバーへの接地位置が変わらない。
     -->
 
-    <Canvas x:Name="Stage" Width="160" Height="150" Background="{x:Null}" IsHitTestVisible="False">
+    <Canvas x:Name="Stage" Width="184" Height="186" Background="{x:Null}" IsHitTestVisible="False">
         <Image x:Name="BodyImage" />
+        <Image x:Name="AccessoryImage" Visibility="Collapsed" />
         <Image x:Name="SleepMarkImage" Visibility="Collapsed" />
         <Image x:Name="HeartImage" Visibility="Collapsed" />
     </Canvas>

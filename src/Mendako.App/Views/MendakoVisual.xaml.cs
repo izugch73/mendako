@@ -16,9 +16,10 @@ namespace Mendako.App.Views;
 public partial class MendakoVisual : UserControl
 {
     /// <summary>スプライトの足元を置く Y 座標。ここを固定するとタスクバーへの接地が段階によらず揃う。</summary>
-    private const double FootY = 132d;
+    private const double FootY = 168d;
 
     private IReadOnlyList<string> _currentRows = Array.Empty<string>();
+    private IReadOnlyList<string> _accessoryRows = Array.Empty<string>();
     private double _spriteLeft;
     private double _spriteTop;
     private int _pixelScale = 6;
@@ -27,6 +28,9 @@ public partial class MendakoVisual : UserControl
     {
         InitializeComponent();
     }
+
+    /// <summary>本体に重ねる飾り。次の <see cref="Apply"/> から反映する。</summary>
+    public Accessory Accessory { get; set; } = Accessory.None;
 
     /// <summary>いま描いているスプライトの中心（このコントロールの座標系）。視線の基準に使う。</summary>
     public Point SpriteCentre { get; private set; }
@@ -57,6 +61,7 @@ public partial class MendakoVisual : UserControl
         Canvas.SetLeft(BodyImage, _spriteLeft);
         Canvas.SetTop(BodyImage, _spriteTop);
 
+        UpdateAccessory(state.Stage, pose);
         UpdateSleepMark(pose.ShowSleepMark, spriteWidth);
         UpdateHeart(pose.ShowHeart, spriteWidth);
     }
@@ -76,11 +81,13 @@ public partial class MendakoVisual : UserControl
 
     /// <summary>
     /// カーソルがメンダコの絵の上にあるか。透明ドットは外として扱う。
+    /// 飾りのドットも体の一部として当たりにする。素通りさせると、帽子をつまもうとした
+    /// クリックが後ろのウィンドウに落ちてしまい、見た目と操作が食い違う。
     /// </summary>
     /// <param name="point">このコントロールの座標系での位置。</param>
     public bool HitTestSprite(Point point)
     {
-        if (_currentRows.Count == 0 || _pixelScale <= 0)
+        if (_pixelScale <= 0)
         {
             return false;
         }
@@ -88,18 +95,43 @@ public partial class MendakoVisual : UserControl
         var x = (int)Math.Floor((point.X - _spriteLeft) / _pixelScale);
         var y = (int)Math.Floor((point.Y - _spriteTop) / _pixelScale);
 
-        if (y < 0 || y >= _currentRows.Count)
+        return IsOpaque(_currentRows, x, y)
+            || IsOpaque(_accessoryRows, x + AccessorySprites.OverhangSide, y + AccessorySprites.OverhangTop);
+    }
+
+    private static bool IsOpaque(IReadOnlyList<string> rows, int x, int y)
+    {
+        if (y < 0 || y >= rows.Count)
         {
             return false;
         }
 
-        var row = _currentRows[y];
+        var row = rows[y];
         if (x < 0 || x >= row.Length)
         {
             return false;
         }
 
         return row[x] != PixelSprite.Transparent;
+    }
+
+    private void UpdateAccessory(GrowthStage stage, PetPose pose)
+    {
+        var frame = AccessorySprites.Get(stage, Accessory, pose.Fin, pose.Flat);
+        if (frame is null)
+        {
+            _accessoryRows = Array.Empty<string>();
+            AccessoryImage.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        _accessoryRows = frame.Rows;
+        AccessoryImage.Source = frame.Bitmap;
+        AccessoryImage.Width = AccessorySprites.Width * _pixelScale;
+        AccessoryImage.Height = AccessorySprites.Height * _pixelScale;
+        AccessoryImage.Visibility = Visibility.Visible;
+        Canvas.SetLeft(AccessoryImage, _spriteLeft - (AccessorySprites.OverhangSide * _pixelScale));
+        Canvas.SetTop(AccessoryImage, _spriteTop - (AccessorySprites.OverhangTop * _pixelScale));
     }
 
     private void UpdateSleepMark(bool show, double spriteWidth)

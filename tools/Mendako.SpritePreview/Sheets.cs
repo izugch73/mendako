@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mendako.App.Sprites;
+using Mendako.App.Views;
 using Mendako.Core.Behavior;
 using Mendako.Core.Model;
 
@@ -37,7 +38,90 @@ internal static class Sheets
         {
             ["frames"] = stage => new[] { Stages(), AllFrames(stage), Palettes(), Bubbles() },
             ["motion"] = stage => new[] { Motion(stage) },
+            ["accessories"] = stage => Enum.GetValues<Accessory>()
+                .Where(a => a != Accessory.None)
+                .Select(a => DressedFrames(stage, a))
+                .Prepend(DressedOverview(stage))
+                .ToList(),
+            ["accessories-visual"] = stage => new[] { DressedVisuals(stage) },
         };
+
+    /// <summary>飾りごとに、耳ビレとぺたんの 6 通りを開いた目で並べる。飾り同士を見比べる用。</summary>
+    private static PreviewSection DressedOverview(GrowthStage stage)
+    {
+        var scale = MendakoSprites.PixelScale(stage);
+        var rows = Enum.GetValues<Accessory>()
+            .Where(a => a != Accessory.None)
+            .Select(accessory => (IReadOnlyList<PreviewCell>)new[] { false, true }
+                .SelectMany(flat => Fins.Select(fin => (Fin: fin, Flat: flat)))
+                .Select(p => Cells.Dressed(
+                    $"{accessory} {p.Fin}{(p.Flat ? " flat" : string.Empty)}",
+                    MendakoSprites.Get(stage, p.Fin, EyePose.Open, 0, p.Flat).Bitmap,
+                    AccessoryLayer(stage, accessory, p.Fin, p.Flat).Bitmap,
+                    scale))
+                .ToList())
+            .ToList();
+
+        return new PreviewSection($"飾り 5 種の見比べ ({stage}・×{scale}・目は Open)", rows);
+    }
+
+    /// <summary>飾りを付けた全コマ。行が耳ビレ (と flat)、列が目。</summary>
+    private static PreviewSection DressedFrames(GrowthStage stage, Accessory accessory)
+    {
+        var scale = MendakoSprites.PixelScale(stage);
+        var rows = new List<IReadOnlyList<PreviewCell>>();
+
+        foreach (var flat in new[] { false, true })
+        {
+            foreach (var fin in Fins)
+            {
+                var layer = AccessoryLayer(stage, accessory, fin, flat);
+
+                rows.Add(EyeFrames
+                    .Select(e => Cells.Dressed(
+                        $"{fin}{(flat ? " flat" : string.Empty)} / {e.Label}",
+                        MendakoSprites.Get(stage, fin, e.Eyes, e.Gaze, flat).Bitmap,
+                        layer.Bitmap,
+                        scale))
+                    .ToList());
+            }
+        }
+
+        return new PreviewSection($"{accessory} ({stage}・×{scale})", rows);
+    }
+
+    private static MendakoSprites.Frame AccessoryLayer(GrowthStage stage, Accessory accessory, FinPose fin, bool flat) =>
+        AccessorySprites.Get(stage, accessory, fin, flat)
+            ?? throw new InvalidOperationException($"{stage} には {accessory} の絵がありません。");
+
+    /// <summary>
+    /// 飾りを付けて MendakoVisual に載せた実寸。吹き出しとの重なりと、
+    /// 一番高く跳ねたとき (BehaviorMachine の BobDots の最大 3) と一番横に揺れたとき (DriftDots の最大 2) に
+    /// 表示枠からはみ出さないかを見る。
+    /// </summary>
+    private static PreviewSection DressedVisuals(GrowthStage stage)
+    {
+        var state = Cells.StateAt(stage);
+        var poses = new (string Label, PetPose Pose)[]
+        {
+            ("Mid Open", new PetPose { Fin = FinPose.Mid, Eyes = EyePose.Open }),
+            ("Up Happy ShowHeart", new PetPose { Fin = FinPose.Up, Eyes = EyePose.Happy, ShowHeart = true }),
+            ("Droop Closed ShowSleepMark", new PetPose { Fin = FinPose.Droop, Eyes = EyePose.Closed, ShowSleepMark = true }),
+            ("Droop flat Open", new PetPose { Fin = FinPose.Droop, Eyes = EyePose.Open, Flat = true }),
+            ("Up bob -3 ShowHeart", new PetPose { Fin = FinPose.Up, Eyes = EyePose.Happy, BobDots = -3d, ShowHeart = true }),
+            ("Up drift -2", new PetPose { Fin = FinPose.Up, Eyes = EyePose.Open, DriftDots = -2d }),
+            ("Up drift +2", new PetPose { Fin = FinPose.Up, Eyes = EyePose.Open, DriftDots = 2d }),
+        };
+
+        var rows = Enum.GetValues<Accessory>()
+            .Select(accessory => (IReadOnlyList<PreviewCell>)poses
+                .Select(p => Cells.Visual($"{accessory} {p.Label}", p.Pose, state, accessory))
+                .ToList())
+            .ToList();
+
+        var frame = new MendakoVisual();
+        return new PreviewSection($"飾りを付けた MendakoVisual ({frame.Width}×{frame.Height}・{stage}・実寸)", rows);
+    }
 
     /// <summary>各段階の実寸。PixelScale の違いで大きさがどう変わるかを見る。</summary>
     private static PreviewSection Stages()
@@ -128,8 +212,9 @@ internal static class Sheets
                 state));
         }
 
+        var frame = new MendakoVisual();
         return new PreviewSection(
-            "MendakoVisual (160×150) 上の吹き出しと接地",
+            $"MendakoVisual ({frame.Width}×{frame.Height}) 上の吹き出しと接地",
             new[] { row.Take(6).ToList(), row.Skip(6).ToList() });
     }
 

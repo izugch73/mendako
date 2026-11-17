@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Mendako.App.Sprites;
 using Mendako.App.Views;
 using Mendako.Core.Behavior;
 using Mendako.Core.Model;
@@ -28,12 +29,36 @@ internal static class Cells
     }
 
     /// <summary>
+    /// 本体のコマに飾りの層を重ねて <paramref name="scale"/> 倍で置く。外周の細線は飾りの層の範囲、
+    /// 内側の細線は本体のコマの範囲。
+    /// </summary>
+    public static PreviewCell Dressed(string label, BitmapSource body, BitmapSource accessory, int scale)
+    {
+        var scaledBody = Pixels.Upscale(body, scale);
+        var scaledAccessory = Pixels.Upscale(accessory, scale);
+        var width = scaledAccessory.PixelWidth;
+        var height = scaledAccessory.PixelHeight;
+        var bodyLeft = AccessorySprites.OverhangSide * scale;
+        var bodyTop = AccessorySprites.OverhangTop * scale;
+        var bodyWidth = scaledBody.PixelWidth;
+        var bodyHeight = scaledBody.PixelHeight;
+
+        return new PreviewCell(label, width + 2, height + 2, dc =>
+        {
+            dc.DrawRectangle(null, BoundsPen, new Rect(0.5, 0.5, width + 1, height + 1));
+            dc.DrawRectangle(null, BoundsPen, new Rect(bodyLeft + 0.5, bodyTop + 0.5, bodyWidth + 1, bodyHeight + 1));
+            dc.DrawImage(scaledBody, new Rect(bodyLeft + 1, bodyTop + 1, bodyWidth, bodyHeight));
+            dc.DrawImage(scaledAccessory, new Rect(1, 1, width, height));
+        });
+    }
+
+    /// <summary>
     /// アプリと同じ <see cref="MendakoVisual"/> に <paramref name="pose"/> を当てて描く。
     /// 吹き出しや揺れのように、コマの外で足される見た目まで確認できる。
     /// </summary>
-    public static PreviewCell Visual(string label, PetPose pose, MendakoState state)
+    public static PreviewCell Visual(string label, PetPose pose, MendakoState state, Accessory accessory = Accessory.None)
     {
-        var visual = new MendakoVisual();
+        var visual = new MendakoVisual { Accessory = accessory };
         visual.Apply(pose, state);
 
         var size = new Size(visual.Width, visual.Height);
