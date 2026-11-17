@@ -19,9 +19,18 @@ public partial class AccessoryRow : UserControl
     /// <summary>プレビューの 1 ドットの大きさ (DIP)。</summary>
     private const int PreviewPixelScale = 3;
 
+    /// <summary>
+    /// 見本に使う最も若い成長段階。飾りの見た目は Adult と Elder でしか確かめていないので、
+    /// それより若い段階では Adult の絵で描く。
+    /// </summary>
+    private const GrowthStage PreviewMinStage = GrowthStage.Adult;
+
     private AccessoryAction _action = AccessoryAction.Buy;
 
     private readonly int _price;
+
+    /// <summary>見本を描いている成長段階。</summary>
+    private GrowthStage _previewStage = PreviewMinStage;
 
     public AccessoryRow(Accessory accessory, int price)
     {
@@ -31,7 +40,7 @@ public partial class AccessoryRow : UserControl
         InitializeComponent();
 
         NameText.Text = Accessories.DisplayName(accessory);
-        BuildPreview();
+        BuildPreview(_previewStage);
     }
 
     /// <summary>ボタンの働き。押したときにどの操作を頼むかを行が決める。</summary>
@@ -50,6 +59,13 @@ public partial class AccessoryRow : UserControl
     public void Update(MendakoState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+
+        var stage = state.Stage > PreviewMinStage ? state.Stage : PreviewMinStage;
+        if (stage != _previewStage)
+        {
+            _previewStage = stage;
+            BuildPreview(stage);
+        }
 
         var owned = state.OwnedAccessories.Contains(Accessory);
         var equipped = state.EquippedAccessory == Accessory;
@@ -92,11 +108,11 @@ public partial class AccessoryRow : UserControl
         ActionButton.IsEnabled = enabled;
     }
 
-    /// <summary>ぬしの絵に重ねる。飾りを買うのは実質ぬしだけなので、見本も常にぬしで出す。</summary>
-    private void BuildPreview()
+    /// <summary>いまの成長段階の絵に重ねる。実際に付けたときと同じ姿を見せるため。</summary>
+    private void BuildPreview(GrowthStage stage)
     {
-        var body = MendakoSprites.Get(GrowthStage.Elder, FinPose.Mid, EyePose.Open);
-        var layer = AccessorySprites.Get(GrowthStage.Elder, Accessory, FinPose.Mid, flat: false)
+        var body = MendakoSprites.Get(stage, FinPose.Mid, EyePose.Open);
+        var layer = AccessorySprites.Get(stage, Accessory, FinPose.Mid, flat: false)
             ?? throw new InvalidOperationException($"飾りの絵がありません ({Accessory})。");
 
         Preview.Width = AccessorySprites.Width * PreviewPixelScale;

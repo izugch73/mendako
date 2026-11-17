@@ -78,9 +78,9 @@ public partial class InventoryWindow : Window
 
         if (ItemList.Items.Count == 0)
         {
-            EmptyText.Text = state.Stage >= GrowthStage.Elder
-                ? "まだ なにも ひろってきていないよ\nぬしが さんぽの ついでに ひろってくるよ"
-                : "ぬしになると ひろってくるよ";
+            EmptyText.Text = state.Stage >= SimulationConfig.Default.ForageFromStage
+                ? $"まだ なにも ひろってきていないよ\n{GrowthStages.DisplayName(state.Stage)}が さんぽの ついでに ひろってくるよ"
+                : $"{GrowthStages.DisplayName(SimulationConfig.Default.ForageFromStage)}になると ひろってくるよ";
             EmptyText.Visibility = Visibility.Visible;
         }
         else

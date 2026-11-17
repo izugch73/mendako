@@ -58,7 +58,7 @@ public sealed record MendakoState
 
     /// <summary>
     /// 最後に拾う機会があった時刻。持ち物がいっぱいで拾えなかった分も含む。
-    /// ぬしになった時刻から数え始め、次に拾う時刻はここから <see cref="Simulation.SimulationConfig.ForageInterval"/> 後になる。
+    /// 拾い始める段階 (<see cref="Simulation.SimulationConfig.ForageFromStage"/>) になった時刻から数え始め、次に拾う時刻はここから <see cref="Simulation.SimulationConfig.ForageInterval"/> 後になる。
     /// </summary>
     public DateTimeOffset? LastForageUtc { get; init; }
 

@@ -4,11 +4,13 @@ using Xunit;
 
 namespace Mendako.Core.Tests;
 
-/// <summary>ぬしが拾うアイテムのテスト。時間を進めて検証する。</summary>
+/// <summary>アイテムを拾う仕組みのテスト。時間を進めて検証する。</summary>
 public class ForagingTests
 {
     private static readonly DateTimeOffset Noon =
         new(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);
+
+    private static readonly double AdultGrowth = GrowthStages.Thresholds[(int)GrowthStage.Adult];
 
     private static readonly double ElderGrowth = GrowthStages.Thresholds[(int)GrowthStage.Elder];
 
@@ -22,6 +24,8 @@ public class ForagingTests
         Affection = 100d,
     };
 
+    private static MendakoState AdultAt(DateTimeOffset at) => ElderAt(at) with { Growth = AdultGrowth };
+
     private static AdvanceOutcome AdvanceBy(
         MendakoState state,
         TimeSpan span,
@@ -30,33 +34,54 @@ public class ForagingTests
         Simulator.Advance(state, state.LastTickUtc + span, TimeZoneInfo.Utc, config, new Random(seed));
 
     [Fact]
-    public void ぬしになる前は拾わない()
+    public void 拾い始める段階より前は拾わない()
     {
         var state = MendakoState.CreateNew(Noon) with
         {
-            Growth = GrowthStages.Thresholds[(int)GrowthStage.Adult],
+            Growth = GrowthStages.Thresholds[(int)GrowthStage.Juvenile],
             Satiety = 100d,
             Energy = 100d,
             Affection = 100d,
         };
 
+        // Juvenile から 24 時間では Adult に届かない
         var outcome = AdvanceBy(state, TimeSpan.FromHours(24));
 
-        Assert.Equal(GrowthStage.Adult, outcome.State.Stage);
+        Assert.Equal(GrowthStage.Juvenile, outcome.State.Stage);
         Assert.Empty(outcome.Foraged);
         Assert.Empty(outcome.State.Items);
         Assert.Null(outcome.State.LastForageUtc);
     }
 
     [Fact]
-    public void ぬしになる前の時間は拾う時間に数えない()
+    public void Adultで拾う()
     {
-        // ぬしの手前から始めて、最初のティックの終わり (12:01) にぬしになる
-        var state = ElderAt(Noon) with { Growth = ElderGrowth - 0.5d };
+        var outcome = AdvanceBy(AdultAt(Noon), TimeSpan.FromHours(3));
+
+        Assert.Equal(GrowthStage.Adult, outcome.State.Stage);
+        Assert.Single(outcome.Foraged);
+        Assert.Single(outcome.State.Items);
+    }
+
+    [Fact]
+    public void 拾い始める段階は設定で変えられる()
+    {
+        var config = SimulationConfig.Default with { ForageFromStage = GrowthStage.Elder };
+
+        var outcome = AdvanceBy(AdultAt(Noon), TimeSpan.FromHours(3), config);
+
+        Assert.Empty(outcome.Foraged);
+    }
+
+    [Fact]
+    public void Adultになる前の時間は拾う時間に数えない()
+    {
+        // Adult の手前から始めて、最初のティックの終わり (12:01) に Adult になる
+        var state = AdultAt(Noon) with { Growth = AdultGrowth - 0.5d };
 
         // 12:00 から数えていれば 15:00 に拾うが、数え始めは 12:01 なので 15:01 まで拾わない
         var early = AdvanceBy(state, TimeSpan.FromHours(3));
-        Assert.Equal(GrowthStage.Elder, early.State.Stage);
+        Assert.Equal(GrowthStage.Adult, early.State.Stage);
         Assert.Empty(early.Foraged);
 
         var later = AdvanceBy(state, TimeSpan.FromHours(3) + TimeSpan.FromMinutes(30));
@@ -65,7 +90,7 @@ public class ForagingTests
     }
 
     [Fact]
-    public void ぬしでも3時間たつまでは拾わない()
+    public void 拾い始めても3時間たつまでは拾わない()
     {
         var outcome = AdvanceBy(ElderAt(Noon), TimeSpan.FromMinutes(179));
 
@@ -186,7 +211,7 @@ public class ForagingTests
     }
 
     [Fact]
-    public void 基準時刻の無いぬしの保存データは進行の起点から数え始める()
+    public void 基準時刻の無いAdult以上の保存データは進行の起点から数え始める()
     {
         var state = ElderAt(Noon);
         Assert.Null(state.LastForageUtc);

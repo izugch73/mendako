@@ -2,7 +2,7 @@ using Mendako.Core.Model;
 
 namespace Mendako.Core.Simulation;
 
-/// <summary>ぬしが拾うアイテムの抽選と、拾う時刻の計算。</summary>
+/// <summary>アイテムを拾う仕組みの抽選と、拾う時刻の計算。</summary>
 internal static class Foraging
 {
     internal sealed record Result(IReadOnlyList<ForagedItem> Foraged, int Missed, DateTimeOffset? LastForageUtc)
@@ -16,7 +16,7 @@ internal static class Foraging
     /// 持ち物がいっぱいで拾えなかった時刻も「過ぎたもの」として基準を進めるので、
     /// 売ったあとに溜まっていた分をまとめて拾うことはない。
     /// </summary>
-    /// <param name="anchor">拾う時刻の数え始め。ぬしになった時刻、または最後に拾う機会があった時刻。</param>
+    /// <param name="anchor">拾う時刻の数え始め。拾い始める段階になった時刻、または最後に拾う機会があった時刻。</param>
     /// <param name="windowStart">
     /// これより後の時刻だけを拾う対象にする。オフライン進行の上限で切り捨てた古い時間を拾わせないための下限。
     /// </param>

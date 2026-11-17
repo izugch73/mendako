@@ -51,7 +51,7 @@ public static class Simulator
         var simStart = state.LastTickUtc.AddMinutes(skipped * tickMinutes);
 
         var stageBefore = state.Stage;
-        var canBecomeElder = stageBefore < GrowthStage.Elder;
+        var canStartForaging = stageBefore < config.ForageFromStage;
         var asleepBefore = state.IsAsleep;
 
         var satiety = state.Satiety;
@@ -61,7 +61,7 @@ public static class Simulator
         var asleep = state.IsAsleep;
         var fellAsleep = false;
         var wokeUp = false;
-        DateTimeOffset? elderSince = null;
+        DateTimeOffset? foragingSince = null;
 
         for (long i = 0; i < applied; i++)
         {
@@ -92,14 +92,14 @@ public static class Simulator
 
             growth += GrowthPerTick(satiety, energy, affection, asleep, config);
 
-            if (elderSince is null && canBecomeElder && GrowthStages.FromGrowth(growth) >= GrowthStage.Elder)
+            if (foragingSince is null && canStartForaging && GrowthStages.FromGrowth(growth) >= config.ForageFromStage)
             {
-                elderSince = tickAt.AddMinutes(tickMinutes);
+                foragingSince = tickAt.AddMinutes(tickMinutes);
             }
         }
 
         var end = state.LastTickUtc.AddMinutes(totalTicks * tickMinutes);
-        var forage = ResolveForage(state, stageBefore, simStart, elderSince, end, config, random);
+        var forage = ResolveForage(state, stageBefore, simStart, foragingSince, end, config, random);
 
         var next = state with
         {
@@ -131,24 +131,24 @@ public static class Simulator
     }
 
     /// <summary>
-    /// ぬしの間だけ拾う。ぬしになる前の時間は数えない。
-    /// 起動前から Elder で基準時刻が無い保存データは、オフライン進行の起点から数え始める。
+    /// <see cref="SimulationConfig.ForageFromStage"/> 以上の間だけ拾う。その段階になる前の時間は数えない。
+    /// 起動前からその段階以上で基準時刻が無い保存データは、オフライン進行の起点から数え始める。
     /// </summary>
     private static Foraging.Result ResolveForage(
         MendakoState state,
         GrowthStage stageBefore,
         DateTimeOffset simStart,
-        DateTimeOffset? elderSince,
+        DateTimeOffset? foragingSince,
         DateTimeOffset end,
         SimulationConfig config,
         Random? random)
     {
         DateTimeOffset anchor;
-        if (stageBefore >= GrowthStage.Elder)
+        if (stageBefore >= config.ForageFromStage)
         {
             anchor = state.LastForageUtc ?? simStart;
         }
-        else if (elderSince is { } since)
+        else if (foragingSince is { } since)
         {
             anchor = since;
         }

@@ -97,7 +97,10 @@ public sealed record SimulationConfig
 
     // --- 拾う・持ち物 ---
 
-    /// <summary>ぬし (Elder) が 1 個拾うまでの間隔。</summary>
+    /// <summary>アイテムを拾い始める成長段階。この段階以上で拾う。</summary>
+    public GrowthStage ForageFromStage { get; init; } = GrowthStage.Adult;
+
+    /// <summary>拾い始める段階のメンダコが 1 個拾うまでの間隔。</summary>
     public TimeSpan ForageInterval { get; init; } = TimeSpan.FromHours(3);
 
     /// <summary>持ち物の上限 (同じアイテムも 1 個ずつ数える)。</summary>
