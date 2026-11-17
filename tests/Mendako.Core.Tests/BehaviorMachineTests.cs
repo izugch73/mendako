@@ -232,10 +232,10 @@ public class BehaviorMachineTests
     // --- 視線 ---
 
     [Theory]
-    [InlineData(20d, -5d, 1)]
-    [InlineData(-20d, -5d, -1)]
-    [InlineData(1d, -20d, 0)] // ほぼ真上
-    [InlineData(200d, 0d, 0)] // 遠すぎる
+    [InlineData(44d, -11d, 1)]
+    [InlineData(-44d, -11d, -1)]
+    [InlineData(2d, -44d, 0)] // ほぼ真上
+    [InlineData(440d, 0d, 0)] // 遠すぎる
     public void 近くのカーソルを目で追う(double x, double y, int expected)
     {
         var input = new BehaviorInput { CursorDots = (x, y) };
@@ -362,8 +362,8 @@ public class BehaviorMachineTests
         var machine = Quiet();
         machine.Trigger(PetAction.Swim, durationSeconds: 60d);
 
-        // 右にだけ 10 ドット動ける
-        var room = 10d;
+        // 右にだけ 22 ドット動ける
+        var room = 22d;
         var travelled = 0d;
         for (var i = 0; i < 60 * 30 && machine.CurrentAction == PetAction.Swim; i++)
         {
@@ -437,7 +437,7 @@ public class BehaviorMachineTests
         var poses = Run(machine, Awake(), 0.5d);
 
         Assert.All(poses, p => Assert.Equal(EyePose.Surprised, p.Eyes));
-        Assert.Contains(poses, p => p.BobDots < -2d);
+        Assert.Contains(poses, p => p.BobDots < -4d);
     }
 
     [Fact]
@@ -468,8 +468,8 @@ public class BehaviorMachineTests
 
         var falling = Run(machine, Awake(), 3d);
         Assert.All(falling, p => Assert.Equal(FinPose.Up, p.Fin));
-        Assert.Contains(falling, p => p.DriftDots > 1d);
-        Assert.Contains(falling, p => p.DriftDots < -1d);
+        Assert.Contains(falling, p => p.DriftDots > 2d);
+        Assert.Contains(falling, p => p.DriftDots < -2d);
 
         machine.Stop(PetAction.Fall);
         Assert.True(machine.Trigger(PetAction.Land));

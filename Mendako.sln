@@ -14,6 +14,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{FF177A10
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mendako.IconGen", "tools\Mendako.IconGen\Mendako.IconGen.csproj", "{0397B3A0-355E-4DED-82A8-835C1B01598A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mendako.SpritePreview", "tools\Mendako.SpritePreview\Mendako.SpritePreview.csproj", "{6D42265F-A409-44F1-9F18-DE42478E57BA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -40,11 +42,16 @@ Global
 		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0397B3A0-355E-4DED-82A8-835C1B01598A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6D42265F-A409-44F1-9F18-DE42478E57BA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6D42265F-A409-44F1-9F18-DE42478E57BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6D42265F-A409-44F1-9F18-DE42478E57BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6D42265F-A409-44F1-9F18-DE42478E57BA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{0397B3A0-355E-4DED-82A8-835C1B01598A} = {FF177A10-7830-4AF8-9D1D-65E054D85EC7}
+		{6D42265F-A409-44F1-9F18-DE42478E57BA} = {FF177A10-7830-4AF8-9D1D-65E054D85EC7}
 	EndGlobalSection
 EndGlobal
