@@ -19,7 +19,7 @@ public partial class ScatterItemWindow : Window
     /// <summary>窓の 1 辺 (DIP)。<see cref="ScatterIcons.Dots"/> の整数倍にして、ドットを滲ませない。</summary>
     public const double SizeDips = ScatterIcons.Dots * 2d;
 
-    private static readonly Duration FadeDuration = new(TimeSpan.FromMilliseconds(260));
+    internal static readonly Duration FadeDuration = new(TimeSpan.FromMilliseconds(260));
 
     private ScatterIcon _icon;
     private bool _clickThrough = true;
@@ -86,7 +86,8 @@ public partial class ScatterItemWindow : Window
     }
 
     /// <summary>消えるときは、ぱっと無くならないように薄くしてから閉じる。</summary>
-    public void FadeOutAndClose()
+    /// <param name="delay">薄くし始めるまでの時間。食べられるものは、食べるしぐさのあいだ見えているようにする。</param>
+    public void FadeOutAndClose(TimeSpan delay = default)
     {
         if (_closing)
         {
@@ -98,7 +99,7 @@ public partial class ScatterItemWindow : Window
         // 消えかけのものをクリックして、片付けた扱いにならないようにする
         OverlayWindow.SetClickThrough(Handle, true);
 
-        var fade = new DoubleAnimation(0d, FadeDuration);
+        var fade = new DoubleAnimation(0d, FadeDuration) { BeginTime = delay };
         fade.Completed += (_, _) => Close();
         BeginAnimation(OpacityProperty, fade);
     }

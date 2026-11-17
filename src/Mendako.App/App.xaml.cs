@@ -25,8 +25,13 @@ public partial class App : Application
     private MendakoSession? _session;
     private TrayController? _tray;
     private PetWindow? _window;
-    private InventoryWindow? _inventoryWindow;
-    private ShopWindow? _shopWindow;
+
+    /// <summary>
+    /// 開いているもちもの・おみせの窓。種類ごとに 1 つまで。
+    /// 二重に開くと、売った結果が片方の窓にしか映らない時間ができて紛らわしい。
+    /// </summary>
+    private readonly Dictionary<Type, Window> _toolWindows = new();
+
     private AppSettings _settings = new();
 
     /// <summary>
@@ -56,9 +61,7 @@ public partial class App : Application
         var session = new MendakoSession();
         _session = session;
         session.StateChanged += OnStateChanged;
-        session.StageAdvanced += OnStageAdvanced;
-        session.ReturnedAfterAbsence += OnReturnedAfterAbsence;
-        session.Foraged += OnForaged;
+        session.Advanced += OnAdvanced;
 
         var tray = new TrayController();
         _tray = tray;
@@ -175,52 +178,55 @@ public partial class App : Application
         _window?.UpdateState(state);
         _tray?.UpdateState(state);
 
-        if (_session is not null && state.Items.Count < _session.MaxInventoryItems)
+        if (state.Items.Count < _session?.MaxInventoryItems)
         {
             _fullNoticeShown = false;
         }
     }
 
-    private void OnStageAdvanced(object? sender, GrowthStage stage)
+    private void OnAdvanced(object? sender, AdvanceReport report)
     {
-        _window?.React(PetAction.Evolve);
+        var notices = new List<(string Title, string Text)>();
 
-        var name = _session?.State.Name ?? "メンダコ";
-        _tray?.ShowBalloon("おおきくなった", $"{name} は {GrowthStages.DisplayName(stage)} になりました。");
-    }
-
-    private void OnReturnedAfterAbsence(object? sender, long skippedTicks)
-    {
-        var days = Math.Max(1, skippedTicks / (24 * 60));
-        _tray?.ShowBalloon(
-            "おかえりなさい",
-            $"{days} 日以上ぶりですね。そのあいだの時間は打ち切ってあるので、手遅れにはなっていません。");
-    }
-
-    private void OnForaged(object? sender, ForageReport report)
-    {
-        var lines = new List<string>();
-
-        if (report.Items.Count > 0)
+        if (report.StageAdvancedTo is { } stage)
         {
-            lines.Add(DescribeForaged(report.Items));
+            _window?.React(PetAction.Evolve);
+
+            var name = _session?.State.Name ?? "メンダコ";
+            notices.Add(("おおきくなった", $"{name} は {GrowthStages.DisplayName(stage)} になりました。"));
         }
 
-        if (report.Missed > 0 && !_fullNoticeShown)
+        if (report.SkippedTicks > 0)
         {
-            _fullNoticeShown = true;
-            lines.Add("もちものが いっぱいで ひろえなかった。「もちもの」で うると また ひろってくるよ");
+            var days = Math.Max(1, report.SkippedTicks / (24 * 60));
+            notices.Add((
+                "おかえりなさい",
+                $"{days} 日以上ぶりですね。そのあいだの時間は打ち切ってあるので、手遅れにはなっていません。"));
         }
 
-        if (lines.Count == 0)
+        if (report.Forage is { } forage)
+        {
+            if (forage.Items.Count > 0)
+            {
+                notices.Add(("ひろいもの", DescribeForaged(forage.Items)));
+            }
+
+            if (forage.Missed > 0 && !_fullNoticeShown)
+            {
+                _fullNoticeShown = true;
+                notices.Add((
+                    "もちものが いっぱい",
+                    "もちものが いっぱいで ひろえなかった。「もちもの」で うると また ひろってくるよ"));
+            }
+        }
+
+        if (notices.Count == 0)
         {
             return;
         }
 
-        // 閉じていた間にまとめて拾った分も、ここで 1 回の通知にする
-        _tray?.ShowBalloon(
-            report.Items.Count > 0 ? "ひろいもの" : "もちものが いっぱい",
-            string.Join(Environment.NewLine, lines));
+        // 風船は後から出したものが前のものを置き換えるので、1 回の進行で出る分は 1 つにまとめる
+        _tray?.ShowBalloon(notices[0].Title, string.Join(Environment.NewLine, notices.Select(n => n.Text)));
     }
 
     private static string DescribeForaged(IReadOnlyList<ItemId> items)
@@ -234,7 +240,7 @@ public partial class App : Application
             })
             .ToList();
 
-        if (items.Count == 1)
+        if (kinds.Count == 1)
         {
             return $"{kinds[0]} を拾ってきた";
         }
@@ -314,41 +320,28 @@ public partial class App : Application
 
     // --- もちもの・おみせ ---
 
-    private void ShowInventory()
+    private void ShowInventory() =>
+        ShowTool(session => new InventoryWindow(session, () => _window?.ChooseScatterSpot()));
+
+    private void ShowShop() => ShowTool(session => new ShopWindow(session));
+
+    private void ShowTool<TWindow>(Func<MendakoSession, TWindow> create)
+        where TWindow : Window
     {
         if (_session is null)
         {
             return;
         }
 
-        // 二重に開くと、売った結果が片方の窓にしか映らない時間ができて紛らわしい
-        if (_inventoryWindow is null)
+        if (!_toolWindows.TryGetValue(typeof(TWindow), out var window))
         {
-            var window = new InventoryWindow(_session, () => _window?.ChooseScatterSpot());
-            window.Closed += (_, _) => _inventoryWindow = null;
-            _inventoryWindow = window;
+            window = create(_session);
+            window.Closed += (_, _) => _toolWindows.Remove(typeof(TWindow));
+            _toolWindows[typeof(TWindow)] = window;
             window.Show();
         }
 
-        BringToFront(_inventoryWindow);
-    }
-
-    private void ShowShop()
-    {
-        if (_session is null)
-        {
-            return;
-        }
-
-        if (_shopWindow is null)
-        {
-            var window = new ShopWindow(_session);
-            window.Closed += (_, _) => _shopWindow = null;
-            _shopWindow = window;
-            window.Show();
-        }
-
-        BringToFront(_shopWindow);
+        BringToFront(window);
     }
 
     private static void BringToFront(Window window)

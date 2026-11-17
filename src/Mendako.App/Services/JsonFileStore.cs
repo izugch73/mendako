@@ -27,7 +27,10 @@ public sealed class JsonFileStore<T>
         _path = path ?? throw new ArgumentNullException(nameof(path));
     }
 
-    /// <summary>読み込む。ファイルがない・壊れている場合は null を返す。</summary>
+    /// <summary>
+    /// 読み込む。ファイルがない・壊れている場合は null を返す。
+    /// 中身が読めなかったファイルは、次の保存で上書きされて失われないよう、別名に退避する。
+    /// </summary>
     public T? Load()
     {
         try
@@ -40,11 +43,36 @@ public sealed class JsonFileStore<T>
             var json = File.ReadAllText(_path);
             return string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<T>(json, Options);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        catch (JsonException)
         {
             // 壊れていたら握りつぶして初期状態から始める。
             // ここで落とすと「起動しないアプリ」になってしまう。
+            // ただし初期状態は次の保存でこのファイルを上書きするので、先に退避しておく。
+            Quarantine();
             return null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 読めなかっただけで中身が壊れたとは限らないので、退避はしない
+            return null;
+        }
+    }
+
+    private void Quarantine()
+    {
+        try
+        {
+            var target = _path + ".bad";
+            if (File.Exists(target))
+            {
+                target = $"{_path}.{DateTime.Now:yyyyMMdd-HHmmss}.bad";
+            }
+
+            File.Move(_path, target, overwrite: false);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 退避できなくても起動は続ける
         }
     }
 

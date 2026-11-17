@@ -29,9 +29,11 @@ public static class Simulator
 
         // 時計が巻き戻された (手動変更・タイムゾーン変更・NTP 補正) 場合は
         // 進めずに基準時刻だけ現在に合わせ直す。巻き戻しで得をさせない。
+        // 拾う基準も現在までに丸める。未来に残すと、巻き戻した期間ずっと拾わなくなる。
         if (elapsed < TimeSpan.Zero)
         {
-            return new AdvanceOutcome(state with { LastTickUtc = nowUtc }, 0, 0);
+            var forageAnchor = state.LastForageUtc is { } last && last > nowUtc ? nowUtc : state.LastForageUtc;
+            return new AdvanceOutcome(state with { LastTickUtc = nowUtc, LastForageUtc = forageAnchor }, 0, 0);
         }
 
         var tickMinutes = config.TickInterval.TotalMinutes;
@@ -49,6 +51,7 @@ public static class Simulator
         var simStart = state.LastTickUtc.AddMinutes(skipped * tickMinutes);
 
         var stageBefore = state.Stage;
+        var canBecomeElder = stageBefore < GrowthStage.Elder;
         var asleepBefore = state.IsAsleep;
 
         var satiety = state.Satiety;
@@ -89,7 +92,7 @@ public static class Simulator
 
             growth += GrowthPerTick(satiety, energy, affection, asleep, config);
 
-            if (elderSince is null && stageBefore < GrowthStage.Elder && GrowthStages.FromGrowth(growth) >= GrowthStage.Elder)
+            if (elderSince is null && canBecomeElder && GrowthStages.FromGrowth(growth) >= GrowthStage.Elder)
             {
                 elderSince = tickAt.AddMinutes(tickMinutes);
             }
@@ -151,7 +154,7 @@ public static class Simulator
         }
         else
         {
-            return new Foraging.Result(Array.Empty<ForagedItem>(), 0, null);
+            return Foraging.Result.None(null);
         }
 
         var free = config.MaxInventoryItems - state.Items.Count;

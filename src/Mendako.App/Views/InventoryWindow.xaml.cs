@@ -101,12 +101,11 @@ public partial class InventoryWindow : Window
                 var definition = ItemCatalog.Get(group.Key);
                 return new ItemRow(group.Key, definition.DisplayName, group.Count(), definition.SellPrice, ItemIcons.Get(group.Key));
             })
-            .OrderBy(row => IndexInCatalog(row.Id))
+            .OrderBy(row => ItemCatalog.OrderOf(row.Id))
             .ToList();
 
         ItemList.ItemsSource = rows;
 
-        // 売った行が無くなったら、同じ位置の次の行を選ぶ。続けて売れるように
         var next = rows.FindIndex(row => row.Id == selectedId);
         if (next < 0 && selectedIndex >= 0 && rows.Count > 0)
         {
@@ -114,19 +113,6 @@ public partial class InventoryWindow : Window
         }
 
         ItemList.SelectedIndex = next;
-    }
-
-    private static int IndexInCatalog(ItemId id)
-    {
-        for (var i = 0; i < ItemCatalog.All.Count; i++)
-        {
-            if (ItemCatalog.All[i].Id == id)
-            {
-                return i;
-            }
-        }
-
-        return int.MaxValue;
     }
 
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e) =>

@@ -19,7 +19,8 @@ public static class Scattering
         ArgumentNullException.ThrowIfNull(state);
         config ??= SimulationConfig.Default;
 
-        var index = IndexOf(state.Items, item);
+        var remaining = state.Items.ToList();
+        var index = remaining.IndexOf(item);
         if (index < 0)
         {
             return new ScatterOutcome(state, ScatterResult.NotInInventory, null);
@@ -38,7 +39,6 @@ public static class Scattering
             MonitorId = monitorId,
         };
 
-        var remaining = state.Items.ToList();
         remaining.RemoveAt(index);
 
         var next = state with
@@ -162,7 +162,6 @@ public static class Scattering
             }
         }
 
-        // 両側が詰まっているときは、空いている範囲からメンダコに近すぎない場所を探す
         var best = double.NaN;
         var bestScore = double.NegativeInfinity;
         for (var x = min; x <= max; x += step / 4d)
@@ -195,18 +194,5 @@ public static class Scattering
         }
 
         return null;
-    }
-
-    private static int IndexOf(IReadOnlyList<ItemId> items, ItemId item)
-    {
-        for (var i = 0; i < items.Count; i++)
-        {
-            if (items[i] == item)
-            {
-                return i;
-            }
-        }
-
-        return -1;
     }
 }

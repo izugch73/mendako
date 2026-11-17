@@ -28,6 +28,9 @@ public sealed class BehaviorMachine
     /// </summary>
     public const double ScatterCooldownSeconds = 600d;
 
+    /// <summary>食べるしぐさ (<see cref="PetAction.Eat"/>) の長さ。食べられたアイテムは、これが終わるころに消す。</summary>
+    public const double EatSeconds = 1.8d;
+
     /// <summary>これより遠いアイテムには気付かない。画面の端のものまで追いかけると落ち着きがない。</summary>
     private const double ScatterNoticeDots = 150d;
 
@@ -308,7 +311,6 @@ public sealed class BehaviorMachine
 
     private PetPose AdmiringPose()
     {
-        // 目を丸くして見とれ、そのあとにっこりする
         const double StareSeconds = 0.7d;
         var staring = Elapsed < StareSeconds;
 
@@ -323,7 +325,6 @@ public sealed class BehaviorMachine
 
     private PetPose PokingPose() => new()
     {
-        // アイテムのほうへ 2 回、体を突き出す
         Fin = FinPose.Up,
         Eyes = EyePose.Open,
         GazeDots = _facing,
@@ -593,7 +594,6 @@ public sealed class BehaviorMachine
 
         var idle = IdlePose(state.Mood);
 
-        // 向かっている途中で片付けられた
         if (found is not { } target)
         {
             EndApproach();
@@ -705,7 +705,7 @@ public sealed class BehaviorMachine
 
     private static double DefaultDuration(PetAction action) => action switch
     {
-        PetAction.Eat => 1.8d,
+        PetAction.Eat => EatSeconds,
         PetAction.Happy => 1.6d,
         PetAction.Refuse => 0.9d,
         PetAction.Evolve => 2.6d,

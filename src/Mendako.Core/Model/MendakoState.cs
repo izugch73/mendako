@@ -53,6 +53,7 @@ public sealed record MendakoState
     public int Shells { get; init; }
 
     /// <summary>持ち物。同じアイテムも 1 個ずつ並べる。新しい項目なので、無い保存データは空として読む。</summary>
+    [JsonConverter(typeof(ItemIdListConverter))]
     public IReadOnlyList<ItemId> Items { get; init; } = Array.Empty<ItemId>();
 
     /// <summary>
@@ -62,12 +63,14 @@ public sealed record MendakoState
     public DateTimeOffset? LastForageUtc { get; init; }
 
     /// <summary>持っている飾り。<see cref="Accessory.None"/> は含めない。</summary>
+    [JsonConverter(typeof(AccessoryListConverter))]
     public IReadOnlyList<Accessory> OwnedAccessories { get; init; } = Array.Empty<Accessory>();
 
     /// <summary>付けている飾り。持っている飾りの中から選ぶ。</summary>
     public Accessory EquippedAccessory { get; init; } = Accessory.None;
 
     /// <summary>タスクバーに置いてあるアイテム。新しい項目なので、無い保存データは空として読む。</summary>
+    [JsonConverter(typeof(ScatteredItemListConverter))]
     public IReadOnlyList<ScatteredItem> ScatteredItems { get; init; } = Array.Empty<ScatteredItem>();
 
     [JsonIgnore]

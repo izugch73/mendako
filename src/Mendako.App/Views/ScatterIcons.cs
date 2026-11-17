@@ -76,7 +76,6 @@ public static class ScatterIcons
                     continue;
                 }
 
-                // 縁取りの分、1 ドットずらして置く
                 var index = ((dy + 1) * Dots) + dx + 1;
                 opaque[index] = true;
                 colors[index] = ((byte)(sumB / sumA), (byte)(sumG / sumA), (byte)(sumR / sumA));

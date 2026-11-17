@@ -49,14 +49,12 @@ public sealed class MendakoSession : IDisposable
     /// <summary>状態が変わるたびに発火する。</summary>
     public event EventHandler<MendakoState>? StateChanged;
 
-    /// <summary>成長段階が上がったときに発火する。</summary>
-    public event EventHandler<GrowthStage>? StageAdvanced;
-
-    /// <summary>長期間の不在から復帰したときに、打ち切られた分数とともに発火する。</summary>
-    public event EventHandler<long>? ReturnedAfterAbsence;
-
-    /// <summary>アイテムを拾った、または持ち物がいっぱいで拾えなかったときに発火する。</summary>
-    public event EventHandler<ForageReport>? Foraged;
+    /// <summary>
+    /// 1 回の <see cref="Advance"/> で、成長段階が上がった・長期間の不在から復帰した・アイテムを拾った (または拾えなかった)
+    /// のいずれかがあったときに、まとめて 1 回だけ発火する。
+    /// 通知の風船は後から出したものが前のものを置き換えるので、別々に知らせると最後の 1 つしか見えない。
+    /// </summary>
+    public event EventHandler<AdvanceReport>? Advanced;
 
     /// <summary>持ち物の上限。</summary>
     public int MaxInventoryItems => _config.MaxInventoryItems;
@@ -88,21 +86,13 @@ public sealed class MendakoSession : IDisposable
         _dirty = true;
         StateChanged?.Invoke(this, State);
 
-        if (outcome.TicksSkipped > 0)
-        {
-            ReturnedAfterAbsence?.Invoke(this, outcome.TicksSkipped);
-        }
+        var foraged = outcome.Foraged.Count > 0 || outcome.ForageMissed > 0
+            ? new ForageReport(outcome.Foraged.Select(f => f.Item).ToArray(), outcome.ForageMissed)
+            : null;
 
-        if (outcome.StageAdvancedTo is { } stage)
+        if (outcome.StageAdvancedTo is not null || outcome.TicksSkipped > 0 || foraged is not null)
         {
-            StageAdvanced?.Invoke(this, stage);
-        }
-
-        if (outcome.Foraged.Count > 0 || outcome.ForageMissed > 0)
-        {
-            Foraged?.Invoke(
-                this,
-                new ForageReport(outcome.Foraged.Select(f => f.Item).ToArray(), outcome.ForageMissed));
+            Advanced?.Invoke(this, new AdvanceReport(outcome.StageAdvancedTo, outcome.TicksSkipped, foraged));
         }
     }
 
@@ -113,11 +103,7 @@ public sealed class MendakoSession : IDisposable
         Advance();
 
         var outcome = Inventory.Sell(State, item);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome;
     }
@@ -129,11 +115,7 @@ public sealed class MendakoSession : IDisposable
         Advance();
 
         var outcome = Scattering.Place(State, item, position, monitorId, _config);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome;
     }
@@ -144,11 +126,7 @@ public sealed class MendakoSession : IDisposable
         Advance();
 
         var outcome = Scattering.PickUp(State, id, _config);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome;
     }
@@ -159,11 +137,7 @@ public sealed class MendakoSession : IDisposable
         Advance();
 
         var outcome = Scattering.React(State, id, _clock.UtcNow, _config);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome.Reaction;
     }
@@ -174,11 +148,7 @@ public sealed class MendakoSession : IDisposable
         Advance();
 
         var outcome = Shop.Buy(State, accessory, _config);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome;
     }
@@ -187,11 +157,7 @@ public sealed class MendakoSession : IDisposable
     public EquipOutcome Equip(Accessory accessory)
     {
         var outcome = Shop.Equip(State, accessory);
-        if (outcome.Changed)
-        {
-            UpdateState(outcome.State);
-            TrySaveNow();
-        }
+        CommitIfChanged(outcome.Changed, outcome.State);
 
         return outcome;
     }
@@ -235,7 +201,7 @@ public sealed class MendakoSession : IDisposable
     /// <summary>
     /// かいがらの増減は、取り消せない操作の結果なので即座に書き出す。
     /// 失敗しても例外は伝えない。dirty のままなので自動保存が再試行するし、
-    /// ここで落とすと売買の画面から例外が飛び出してしまう。
+    /// ここで落とすと売買の画面や自動保存のタイマーから例外が飛び出してしまう。
     /// </summary>
     private void TrySaveNow()
     {
@@ -245,6 +211,16 @@ public sealed class MendakoSession : IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+        }
+    }
+
+    /// <summary>変わっていれば状態に反映して、すぐ書き出す。</summary>
+    private void CommitIfChanged(bool changed, MendakoState next)
+    {
+        if (changed)
+        {
+            UpdateState(next);
+            TrySaveNow();
         }
     }
 
@@ -272,7 +248,7 @@ public sealed class MendakoSession : IDisposable
     {
         if (_dirty)
         {
-            SaveNow();
+            TrySaveNow();
         }
     }
 

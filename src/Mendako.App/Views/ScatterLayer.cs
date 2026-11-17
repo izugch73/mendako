@@ -30,6 +30,12 @@ internal sealed class ScatterLayer
     private readonly Func<string?> _petMonitorId;
     private readonly Dictionary<Guid, ScatterItemWindow> _windows = new();
 
+    /// <summary>
+    /// 片付けを頼んでいる最中のもの。状態から無くなる理由は片付けと食べられた場合しかなく、
+    /// 食べられたものだけ食べるしぐさが終わるまで見せたいので、ここで見分ける。
+    /// </summary>
+    private readonly HashSet<Guid> _pickingUp = new();
+
     private IReadOnlyList<TaskbarInfo> _taskbars = Array.Empty<TaskbarInfo>();
     private bool _hidden;
 
@@ -52,7 +58,10 @@ internal sealed class ScatterLayer
         var wanted = items.Select(item => item.Id).ToHashSet();
         foreach (var id in _windows.Keys.Where(id => !wanted.Contains(id)).ToList())
         {
-            _windows[id].FadeOutAndClose();
+            var delay = _pickingUp.Contains(id)
+                ? TimeSpan.Zero
+                : TimeSpan.FromSeconds(BehaviorMachine.EatSeconds) - ScatterItemWindow.FadeDuration.TimeSpan;
+            _windows[id].FadeOutAndClose(delay);
             _windows.Remove(id);
         }
 
@@ -69,7 +78,7 @@ internal sealed class ScatterLayer
 
             var window = new ScatterItemWindow(item);
             window.Prepare();
-            window.Clicked += (_, _) => PickUpRequested?.Invoke(this, window.Item.Id);
+            window.Clicked += (_, _) => RequestPickUp(window.Item.Id);
             window.DpiScaleChanged += (_, _) => Place(window);
             _windows[item.Id] = window;
 
@@ -79,6 +88,20 @@ internal sealed class ScatterLayer
             {
                 window.ShowFaded();
             }
+        }
+    }
+
+    private void RequestPickUp(Guid id)
+    {
+        _pickingUp.Add(id);
+        try
+        {
+            // 状態の更新と窓の同期は、この呼び出しの中で終わる
+            PickUpRequested?.Invoke(this, id);
+        }
+        finally
+        {
+            _pickingUp.Remove(id);
         }
     }
 

@@ -27,13 +27,14 @@ public partial class ShopWindow : Window
         InitializeComponent();
 
         // 安い順に並べる。値段のない飾りは売り物ではないので出さない
-        var accessories = Enum.GetValues<Accessory>()
-            .Where(accessory => accessory != Accessory.None && _session.PriceOf(accessory) is not null)
-            .OrderBy(accessory => _session.PriceOf(accessory));
+        var forSale = Enum.GetValues<Accessory>()
+            .Select(accessory => (Accessory: accessory, Price: _session.PriceOf(accessory)))
+            .Where(item => item.Price is not null)
+            .OrderBy(item => item.Price);
 
-        foreach (var accessory in accessories)
+        foreach (var (accessory, price) in forSale)
         {
-            var row = new AccessoryRow(accessory) { Margin = new Thickness(0, 0, 0, 6) };
+            var row = new AccessoryRow(accessory, price!.Value) { Margin = new Thickness(0, 0, 0, 6) };
             row.ActionRequested += OnActionRequested;
             _rows.Add(row);
             Rows.Children.Add(row);
@@ -67,7 +68,7 @@ public partial class ShopWindow : Window
 
         foreach (var row in _rows)
         {
-            row.Update(state, _session.PriceOf(row.Accessory));
+            row.Update(state);
         }
     }
 
@@ -78,7 +79,7 @@ public partial class ShopWindow : Window
             return;
         }
 
-        var name = AccessoryNames.DisplayName(row.Accessory);
+        var name = Accessories.DisplayName(row.Accessory);
 
         switch (action)
         {

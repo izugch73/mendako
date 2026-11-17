@@ -21,3 +21,17 @@ public enum Accessory
     /// <summary>両耳ビレの先に下げた真珠のイヤリング。</summary>
     PearlEarrings = 5,
 }
+
+public static class Accessories
+{
+    public static string DisplayName(Accessory accessory) => accessory switch
+    {
+        Accessory.None => "なし",
+        Accessory.Flower => "いちりんの花",
+        Accessory.SunflowerCrown => "ひまわりのかんむり",
+        Accessory.StrawHat => "むぎわらぼうし",
+        Accessory.TopHat => "ちいさなシルクハット",
+        Accessory.PearlEarrings => "しんじゅのイヤリング",
+        _ => accessory.ToString(),
+    };
+}

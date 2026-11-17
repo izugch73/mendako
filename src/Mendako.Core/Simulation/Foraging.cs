@@ -5,7 +5,11 @@ namespace Mendako.Core.Simulation;
 /// <summary>ぬしが拾うアイテムの抽選と、拾う時刻の計算。</summary>
 internal static class Foraging
 {
-    internal sealed record Result(IReadOnlyList<ForagedItem> Foraged, int Missed, DateTimeOffset? LastForageUtc);
+    internal sealed record Result(IReadOnlyList<ForagedItem> Foraged, int Missed, DateTimeOffset? LastForageUtc)
+    {
+        /// <summary>何も拾わず、拾えなかった分もない結果。</summary>
+        public static Result None(DateTimeOffset? lastForageUtc) => new(Array.Empty<ForagedItem>(), 0, lastForageUtc);
+    }
 
     /// <summary>
     /// 拾う時刻は <paramref name="anchor"/> から <see cref="SimulationConfig.ForageInterval"/> ごとに決まる。
@@ -28,7 +32,7 @@ internal static class Foraging
         if (interval <= 0 || end < anchor)
         {
             // 時計の巻き戻しなどで基準が未来にあるときは、巻き戻した分の得をさせない
-            return new Result(Array.Empty<ForagedItem>(), 0, anchor);
+            return Result.None(anchor);
         }
 
         var lower = windowStart > anchor ? windowStart : anchor;

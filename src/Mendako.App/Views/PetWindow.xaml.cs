@@ -152,8 +152,7 @@ public partial class PetWindow : Window
         FeedMenuItem.IsEnabled = !_state.IsAsleep;
         PetMenuItem.IsEnabled = !_state.IsAsleep;
 
-        // 次のフレームの Apply で反映される。起動時はフレームタイマーが回り出す前に呼ばれるので、
-        // 最初に描くコマから飾りが付いている
+        // 起動時はフレームタイマーが回り出す前に呼ばれる。ここで渡しておかないと、最初に描くコマだけ飾りが無い
         Visual.Accessory = _state.EquippedAccessory;
 
         RefreshStatusCard();

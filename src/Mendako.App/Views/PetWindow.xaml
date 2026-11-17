@@ -22,8 +22,6 @@
         WPF のヒットテスト対象になり、メンダコの周りでクリックが吸われてしまう。
     -->
 
-    <!-- カードの配色は Theme.xaml にある。もちもの・おみせの窓と揃えるため -->
-
     <Window.ContextMenu>
         <ContextMenu x:Name="PetContextMenu">
             <MenuItem x:Name="FeedMenuItem" Header="ごはんをあげる" Click="OnFeedClick" />

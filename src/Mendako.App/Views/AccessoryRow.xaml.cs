@@ -21,13 +21,16 @@ public partial class AccessoryRow : UserControl
 
     private AccessoryAction _action = AccessoryAction.Buy;
 
-    public AccessoryRow(Accessory accessory)
+    private readonly int _price;
+
+    public AccessoryRow(Accessory accessory, int price)
     {
         Accessory = accessory;
+        _price = price;
 
         InitializeComponent();
 
-        NameText.Text = AccessoryNames.DisplayName(accessory);
+        NameText.Text = Accessories.DisplayName(accessory);
         BuildPreview();
     }
 
@@ -44,14 +47,14 @@ public partial class AccessoryRow : UserControl
     /// <summary>ボタンが押された。</summary>
     public event EventHandler<AccessoryAction>? ActionRequested;
 
-    public void Update(MendakoState state, int? price)
+    public void Update(MendakoState state)
     {
         ArgumentNullException.ThrowIfNull(state);
 
         var owned = state.OwnedAccessories.Contains(Accessory);
         var equipped = state.EquippedAccessory == Accessory;
 
-        PriceText.Text = price is { } value ? $"{value} かいがら" : "うっていないよ";
+        PriceText.Text = $"{_price} かいがら";
         Frame.BorderBrush = equipped ? (Brush)FindResource("AccentPink") : Brushes.Transparent;
 
         if (equipped)
@@ -64,19 +67,14 @@ public partial class AccessoryRow : UserControl
             SetStatus("もっているよ", "AccentTeal");
             SetAction(AccessoryAction.Equip, "つける", enabled: true);
         }
-        else if (price is not { } cost)
-        {
-            SetStatus("いまは かえないよ", "CardMuted");
-            SetAction(AccessoryAction.Buy, "かう", enabled: false);
-        }
-        else if (state.Shells >= cost)
+        else if (state.Shells >= _price)
         {
             SetStatus("かえるよ", "AccentGold");
             SetAction(AccessoryAction.Buy, "かう", enabled: true);
         }
         else
         {
-            SetStatus($"あと {cost - state.Shells} かいがら", "CardMuted");
+            SetStatus($"あと {_price - state.Shells} かいがら", "CardMuted");
             SetAction(AccessoryAction.Buy, "かう", enabled: false);
         }
     }
@@ -101,7 +99,6 @@ public partial class AccessoryRow : UserControl
         var layer = AccessorySprites.Get(GrowthStage.Elder, Accessory, FinPose.Mid, flat: false)
             ?? throw new InvalidOperationException($"飾りの絵がありません ({Accessory})。");
 
-        // 飾りの層は本体より、上に OverhangTop 行・左右に OverhangSide 列ぶん広い
         Preview.Width = AccessorySprites.Width * PreviewPixelScale;
         Preview.Height = AccessorySprites.Height * PreviewPixelScale;
 

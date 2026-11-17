@@ -150,5 +150,11 @@ public static class ItemCatalog
 
     private static readonly Dictionary<ItemId, ItemDefinition> ById = All.ToDictionary(d => d.Id);
 
+    private static readonly Dictionary<ItemId, int> OrderById =
+        All.Select((definition, index) => (definition.Id, index)).ToDictionary(pair => pair.Id, pair => pair.index);
+
     public static ItemDefinition Get(ItemId id) => ById[id];
+
+    /// <summary>一覧 (<see cref="All"/>) での位置。並べ替えに使う。</summary>
+    public static int OrderOf(ItemId id) => OrderById[id];
 }

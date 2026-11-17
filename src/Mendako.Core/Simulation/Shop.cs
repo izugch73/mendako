@@ -5,9 +5,14 @@ namespace Mendako.Core.Simulation;
 /// <summary>おみせ。かいがらで飾りを買い、持っている飾りを付け外しする。</summary>
 public static class Shop
 {
-    /// <summary>飾りの値段。売っていなければ null。</summary>
+    /// <summary>飾りの値段。売っていなければ null。「飾りなし」は設定に値段があっても売らない。</summary>
     public static int? PriceOf(Accessory accessory, SimulationConfig? config = null)
     {
+        if (accessory == Accessory.None)
+        {
+            return null;
+        }
+
         config ??= SimulationConfig.Default;
         return config.AccessoryPrices.TryGetValue(accessory, out var price) ? price : null;
     }
@@ -17,7 +22,7 @@ public static class Shop
     {
         ArgumentNullException.ThrowIfNull(state);
 
-        if (accessory == Accessory.None || PriceOf(accessory, config) is not { } price)
+        if (PriceOf(accessory, config) is not { } price)
         {
             return new PurchaseOutcome(state, PurchaseResult.NotForSale, accessory, 0);
         }

@@ -235,4 +235,25 @@ public class ForagingTests
 
         Assert.Equal(new[] { ItemCategory.Gear }, categories);
     }
+
+    [Fact]
+    public void 時計を巻き戻しても拾う基準が未来に残らない()
+    {
+        var state = ElderAt(Noon);
+
+        // 6 時間進めて拾う。基準 (LastForageUtc) は 18:00 になる
+        var first = AdvanceBy(state, TimeSpan.FromHours(6), Roomy);
+        Assert.Equal(2, first.Foraged.Count);
+        Assert.Equal(Noon.AddHours(6), first.State.LastForageUtc);
+
+        // 12:00 まで巻き戻す。基準だけが未来に残ってはいけない
+        var rewound = Simulator.Advance(first.State, Noon, TimeZoneInfo.Utc, Roomy, new Random(1));
+        Assert.Equal(Noon, rewound.State.LastTickUtc);
+        Assert.Equal(Noon, rewound.State.LastForageUtc);
+        Assert.Equal(first.State.Items, rewound.State.Items);
+
+        // そこから 6 時間進めると、また拾う
+        var again = AdvanceBy(rewound.State, TimeSpan.FromHours(6), Roomy);
+        Assert.Equal(2, again.Foraged.Count);
+    }
 }

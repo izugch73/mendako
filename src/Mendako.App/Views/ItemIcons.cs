@@ -22,8 +22,6 @@ public static class ItemIcons
         }
 
         var image = new BitmapImage(new Uri($"pack://application:,,,/Assets/Items/{id}.png", UriKind.Absolute));
-
-        // 表示のたびに読み直さないよう、共有できる形に固める
         image.Freeze();
         Cache[id] = image;
         return image;
