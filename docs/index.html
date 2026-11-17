@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>メンダコの遊び方</title>
+<meta name="description" content="Windows のタスクバーの上に住みつくメンダコを育てるペットアプリの遊び方。ダウンロードのしかた、育て方、アイテム、おみせ、こまったときの対処をまとめています。">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#fbf5f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#232028" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="メンダコの遊び方">
+<meta property="og:description" content="タスクバーの上に住みつくメンダコを育てるペットアプリの遊び方ページです。">
+<link rel="icon" type="image/png" href="images/favicon.png">
+<style>
+:root {
+  color-scheme: light dark;
+
+  /* ライトモード。暗い窓の配色 (Theme.xaml) と同じ色相を、明るい地に合わせて濃くしてある */
+  --bg: #fbf5f3;
+  --panel: #ffffff;
+  --panel-2: #f5e9e6;
+  --text: #2b2229;
+  --muted: #65575f;
+  --line: #e4d2cf;
+  --accent: #b8324d;
+  --accent-soft: #f2a0af;
+  --teal: #19705e;
+  --gold: #86600c;
+  --button-bg: #b8324d;
+  --button-text: #ffffff;
+  --stage-top: #e6eef8;
+  --stage-bottom: #d3e0f1;
+  --note-bg: #fff4dc;
+  --note-line: #e3c27a;
+  --warn-bg: #fdeaea;
+  --warn-line: #e3a0a0;
+  --maxw: 800px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* アプリのウィンドウ (Views/Theme.xaml) と同じ色 */
+    --bg: #232028;
+    --panel: #2d2931;
+    --panel-2: #39343c;
+    --text: #f4edef;
+    --muted: #afa2a8;
+    --line: #463c43;
+    --accent: #f2a0af;
+    --accent-soft: #f2a0af;
+    --teal: #7ec8b4;
+    --gold: #e0c27e;
+    --button-bg: #f2a0af;
+    --button-text: #2a1b20;
+    --stage-top: #b9c9e0;
+    --stage-bottom: #9db3d2;
+    --note-bg: #3a3326;
+    --note-line: #6f5f35;
+    --warn-bg: #3d2a2e;
+    --warn-line: #7b4650;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic UI", "Yu Gothic", "Meiryo", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.85;
+  overflow-wrap: break-word;
+  word-break: auto-phrase;
+}
+
+main, header.top, footer { width: 100%; max-width: var(--maxw); margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+
+img { max-width: 100%; height: auto; }
+.px { image-rendering: crisp-edges; image-rendering: pixelated; }
+
+a { color: var(--accent); text-underline-offset: 3px; }
+a:focus-visible, summary:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+h1, h2, h3 { line-height: 1.4; margin: 0; }
+p { margin: 0 0 1em; }
+ul, ol { margin: 0 0 1em; padding-left: 1.4em; }
+li { margin-bottom: .4em; }
+code, kbd { font-family: ui-monospace, "Cascadia Mono", "Consolas", "Yu Gothic UI", monospace; font-size: .92em; background: var(--panel-2); padding: .1em .4em; border-radius: 4px; overflow-wrap: anywhere; }
+
+/* 冒頭 */
+header.top { padding-top: 32px; padding-bottom: 8px; }
+.hero { display: grid; gap: 20px; align-items: center; }
+.hero-art {
+  order: -1;
+  justify-self: center;
+  background: linear-gradient(var(--stage-top), var(--stage-bottom));
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 4px 0 var(--line);
+  padding: 8px 24px 0;
+  line-height: 0;
+}
+.hero-art img { width: 256px; height: 256px; animation: bob 2.4s steps(1, end) infinite; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@media (prefers-reduced-motion: reduce) { .hero-art img { animation: none; } html { scroll-behavior: auto; } }
+
+.hero h1 { font-size: 2.4rem; letter-spacing: .04em; }
+.tagline { font-size: 1.15rem; margin: .3em 0 .8em; }
+.hero-text p { color: var(--muted); }
+
+.button {
+  display: inline-block;
+  background: var(--button-bg);
+  color: var(--button-text);
+  font-weight: 700;
+  text-decoration: none;
+  padding: .7em 1.4em;
+  border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, .28);
+  line-height: 1.5;
+}
+.button:hover { filter: brightness(1.06); }
+.button:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0, 0, 0, .28); }
+.button:focus-visible { outline-color: var(--text); }
+.button-note { font-size: .88rem; color: var(--muted); margin: .9em 0 0; }
+
+@media (min-width: 680px) {
+  .hero { grid-template-columns: 1fr auto; }
+  .hero-art { order: 0; }
+}
+
+/* 目次 */
+nav.toc { margin: 28px 0 8px; }
+nav.toc h2 { font-size: 1rem; color: var(--muted); margin-bottom: .6em; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+nav.toc li { margin: 0; }
+nav.toc a {
+  display: flex; gap: .6em; align-items: baseline;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 3px 0 var(--line);
+  padding: .5em .8em;
+  color: var(--text);
+  text-decoration: none;
+  line-height: 1.5;
+}
+nav.toc a:hover { border-color: var(--accent); }
+nav.toc a[aria-current="true"] { border-color: var(--accent); }
+nav.toc .n { color: var(--accent); font-weight: 700; }
+
+/* 節 */
+section { padding-top: 40px; scroll-margin-top: 8px; }
+section > h2 { font-size: 1.5rem; display: flex; align-items: center; gap: .6em; margin-bottom: .8em; padding-bottom: .4em; border-bottom: 2px solid var(--line); }
+section > h2 .num {
+  flex: none;
+  display: inline-grid; place-items: center;
+  min-width: 2em; height: 2em;
+  background: var(--accent-soft);
+  color: #3a1d25;
+  border-radius: 6px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, .25);
+  font-size: .85em;
+}
+h3 { font-size: 1.1rem; margin: 1.6em 0 .5em; }
+h3::before { content: ""; display: inline-block; width: .6em; height: .6em; background: var(--accent-soft); margin-right: .5em; box-shadow: 2px 2px 0 var(--line); }
+
+.lead { font-size: 1.05rem; }
+
+/* 手順 */
+ol.steps { list-style: none; padding: 0; counter-reset: step; }
+ol.steps > li {
+  counter-increment: step;
+  position: relative;
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: .8em 1em .8em 3.4em;
+}
+ol.steps > li::before {
+  content: counter(step);
+  position: absolute; left: .8em; top: .8em;
+  width: 1.7em; height: 1.7em;
+  display: grid; place-items: center;
+  background: var(--accent-soft); color: #3a1d25;
+  border-radius: 6px; font-weight: 700; line-height: 1;
+}
+ol.steps > li > :last-child { margin-bottom: 0; }
+
+.note, .warn {
+  border: 2px solid var(--note-line);
+  background: var(--note-bg);
+  border-radius: 8px;
+  padding: .8em 1em;
+  margin: 0 0 1.2em;
+}
+.warn { border-color: var(--warn-line); background: var(--warn-bg); }
+.note > :last-child, .warn > :last-child { margin-bottom: 0; }
+.note strong.label, .warn strong.label { display: block; margin-bottom: .2em; }
+
+/* 画面の文言 (アプリのボタンや項目) */
+.ui { font-weight: 700; white-space: nowrap; }
+.ui::before { content: "「"; }
+.ui::after { content: "」"; }
+.win-text { background: var(--panel-2); padding: .05em .45em; border-radius: 4px; }
+
+/* ドット絵の台 */
+.stage-grid { list-style: none; padding: 0; margin: 0 0 1em; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(136px, 1fr)); }
+.stage-grid li { margin: 0; text-align: center; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+.stage-grid .art { background: linear-gradient(var(--stage-top), var(--stage-bottom)); line-height: 0; padding-top: 4px; }
+.stage-grid .art img { width: 132px; height: 125px; }
+.stage-grid .name { font-weight: 700; padding: .5em .4em 0; line-height: 1.5; }
+.stage-grid .when { color: var(--muted); font-size: .9rem; padding: 0 .4em .6em; line-height: 1.5; }
+
+.dressed-grid { list-style: none; padding: 0; margin: 0 0 1em; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(138px, 1fr)); }
+.dressed-grid li { margin: 0; text-align: center; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; overflow: hidden; }
+.dressed-grid .art { background: linear-gradient(var(--stage-top), var(--stage-bottom)); line-height: 0; padding-top: 4px; }
+.dressed-grid .art img { width: 138px; height: 132px; }
+.dressed-grid .name { font-weight: 700; padding: .5em .4em 0; line-height: 1.5; }
+.dressed-grid .price { color: var(--gold); font-weight: 700; padding: 0 .4em .6em; line-height: 1.5; }
+
+.mini { background: linear-gradient(var(--stage-top), var(--stage-bottom)); border-radius: 6px; line-height: 0; padding: 2px 4px 0; display: inline-block; }
+.mini img { width: 64px; height: 70px; }
+
+
+.care { margin: 0 0 1em; }
+.care-item { display: grid; grid-template-columns: auto 1fr; gap: 14px; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; padding: .9em 1em .3em; margin-bottom: 10px; }
+.care-item h4 { margin: 0 0 .3em; font-size: 1.05rem; line-height: 1.5; }
+.care-item .mini { align-self: start; justify-self: start; }
+
+/* 図 */
+figure { margin: 0 0 1.2em; }
+figcaption { color: var(--muted); font-size: .9rem; line-height: 1.6; margin-top: .5em; }
+figure.shot img { display: block; width: 100%; max-width: 340px; border: 2px solid var(--line); border-radius: 8px; box-shadow: 0 4px 0 var(--line); }
+figure.shot.wide img { max-width: 340px; }
+.scene-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); margin-bottom: 1.2em; }
+.scene-grid figure { margin: 0; }
+.scene-grid img { width: 100%; max-width: 340px; display: block; border: 2px solid var(--line); border-radius: 8px; box-shadow: 0 4px 0 var(--line); }
+
+.window-pair { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-bottom: 1.2em; }
+.window-pair figure { margin: 0; flex: 0 1 auto; max-width: 100%; }
+.window { background: #232028; color: #f4edef; border: 2px solid var(--line); border-radius: 8px; box-shadow: 0 4px 0 var(--line); overflow: hidden; max-width: 100%; }
+.window .bar { font-size: .8rem; padding: .35em .8em; background: #17151a; color: #afa2a8; line-height: 1.5; }
+.window img { display: block; max-width: 100%; height: auto; }
+
+/* 表 */
+.table-wrap { margin: 0 0 1.2em; overflow-x: auto; }
+table { border-collapse: separate; border-spacing: 0; width: 100%; background: var(--panel); border: 2px solid var(--line); border-radius: 8px; overflow: hidden; }
+th, td { padding: .6em .8em; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); line-height: 1.7; }
+tr:last-child > th, tr:last-child > td { border-bottom: 0; }
+thead th { background: var(--panel-2); font-size: .9rem; white-space: nowrap; }
+tbody th { font-weight: 700; }
+td.icon, th.icon { width: 1%; padding-right: 0; }
+td.center, th.center { text-align: center; white-space: nowrap; }
+td.right { text-align: right; white-space: nowrap; }
+table.menu tbody th { min-width: 7.5em; }
+tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: .85rem; line-height: 1.5; }
+table.menu .center { padding-left: .3em; padding-right: .3em; }
+
+.dot { display: inline-block; width: .8em; height: .8em; border-radius: 2px; margin-right: .4em; vertical-align: -.05em; }
+.dot.pink { background: #f2a0af; }
+.dot.teal { background: #7ec8b4; }
+.dot.gold { background: #e0c27e; }
+.dot.pink, .dot.teal, .dot.gold { box-shadow: 0 0 0 1px rgba(0, 0, 0, .25); }
+
+/* こまったとき */
+details { background: var(--panel); border: 2px solid var(--line); border-radius: 8px; margin: 0 0 10px; }
+summary { cursor: pointer; padding: .7em 1em; font-weight: 700; line-height: 1.6; list-style: none; display: flex; gap: .6em; align-items: baseline; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "＋"; color: var(--accent); flex: none; }
+details[open] > summary::before { content: "－"; }
+details[open] > summary { border-bottom: 2px solid var(--line); }
+details .body { padding: .8em 1em 0; }
+details .body > :last-child { margin-bottom: .9em; }
+details details { background: var(--panel-2); }
+
+.path { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 1em; }
+.path code { font-size: 1rem; padding: .3em .6em; }
+.copy {
+  font: inherit; font-size: .85rem;
+  background: var(--panel-2); color: var(--text);
+  border: 2px solid var(--line); border-radius: 6px;
+  padding: .2em .8em; cursor: pointer;
+}
+.copy:hover { border-color: var(--accent); }
+
+pre { margin: 0 0 1em; padding: .8em 1em; background: var(--panel-2); border-radius: 6px; overflow-x: auto; font-size: .88rem; line-height: 1.6; }
+pre code { background: none; padding: 0; overflow-wrap: normal; }
+
+footer { margin-top: 56px; padding-bottom: 48px; color: var(--muted); font-size: .9rem; line-height: 1.7; }
+footer::before { content: ""; display: block; height: 2px; background: var(--line); margin-bottom: 20px; }
+footer p { margin: 0 0 .4em; }
+
+@media (max-width: 480px) {
+  body { font-size: 15.5px; }
+  .hero h1 { font-size: 2rem; }
+  section > h2 { font-size: 1.3rem; }
+  th, td { padding: .5em .6em; }
+  ol.steps > li { padding-left: 3.1em; }
+  .care-item { grid-template-columns: 1fr; gap: 6px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="hero">
+    <div class="hero-text">
+      <h1>メンダコ</h1>
+      <p class="tagline">タスクバーの上に住みつく、深海のペット。</p>
+      <p>Windows の画面の下で、ひとりでに泳いだり、きょろきょろしたりします。ごはんをあげて、なでて、いっしょに大きくなりましょう。</p>
+      <p><a class="button" href="https://github.com/izugch73/mendako/releases/latest">最新版をダウンロード</a></p>
+      <p class="button-note">GitHub のリリースページが開きます。Windows 10 / 11（64 ビット）用です。</p>
+    </div>
+    <div class="hero-art"><img class="px" src="images/hero.png" width="256" height="256" alt="ハートを出して喜ぶメンダコ"></div>
+  </div>
+
+  <nav class="toc" aria-label="目次">
+    <h2>もくじ</h2>
+    <ol>
+      <li><a href="#start"><span class="n">1</span><span>はじめかた</span></a></li>
+      <li><a href="#grow"><span class="n">2</span><span>育てる</span></a></li>
+      <li><a href="#touch"><span class="n">3</span><span>さわる</span></a></li>
+      <li><a href="#items"><span class="n">4</span><span>アイテムを拾う</span></a></li>
+      <li><a href="#place"><span class="n">5</span><span>置いて遊ぶ</span></a></li>
+      <li><a href="#shop"><span class="n">6</span><span>おみせと着せ替え</span></a></li>
+      <li><a href="#help"><span class="n">7</span><span>こまったとき</span></a></li>
+    </ol>
+  </nav>
+</header>
+
+<main>
+
+<!-- 1 はじめかた -->
+<section id="start">
+  <h2><span class="num">1</span>はじめかた</h2>
+  <p class="lead">インストールは要りません。zip をダウンロードして展開し、中の <code>Mendako.exe</code> を起動するだけです。</p>
+
+  <ol class="steps">
+    <li>
+      <p><strong>ダウンロードする。</strong>ページ上部の「最新版をダウンロード」を押します。リリースのページが開くので、下のほうにある「Assets」の中の <code>Mendako-…-win-x64.zip</code> を選んでください（約 60 MB です）。</p>
+    </li>
+    <li>
+      <p><strong>展開する。</strong>zip を右クリックして「すべて展開」を選びます。中身は <code>Mendako.exe</code> が 1 つだけです。好きなフォルダに置いてかまいません。</p>
+      <p>あとで「Windows 起動時に開始」を使うなら、先に置き場所を決めてください。<code>Mendako.exe</code> を別の場所へ動かすと、自動で起動しなくなります。</p>
+    </li>
+    <li>
+      <p><strong>起動する。</strong><code>Mendako.exe</code> をダブルクリックします。しばらくすると、タスクバーの上にたまごが現れます。</p>
+    </li>
+  </ol>
+
+  <div class="note">
+    <strong class="label">初めて起動するとき、青い警告が出ます</strong>
+    <p>「WindowsによってPCが保護されました」と出るのは、このアプリに Microsoft の署名がないためです。個人が作ったアプリでは、よくあることです。次の順に進めば起動できます。</p>
+    <ol>
+      <li>メッセージの中の <span class="ui">詳細情報</span> を押します。</li>
+      <li>下に出てくる <span class="ui">実行</span> を押します。</li>
+    </ol>
+    <p>ソースコードは GitHub で公開しています。</p>
+  </div>
+
+  <h3>動作環境</h3>
+  <ul>
+    <li>Windows 10 または 11 の 64 ビット版</li>
+    <li>ほかに入れるソフトはありません（.NET も不要です）</li>
+    <li>モニタが複数あっても動きます。くわしくは <a href="#help">こまったとき</a> を見てください</li>
+  </ul>
+</section>
+
+<!-- 2 育てる -->
+<section id="grow">
+  <h2><span class="num">2</span>育てる</h2>
+  <p class="lead">メンダコは、たまごから 5 つの姿に育ちます。世話をすると、次の姿に近づきます。</p>
+
+  <h3>5 つの姿</h3>
+  <ul class="stage-grid">
+    <li>
+      <div class="art"><img class="px" src="images/stage-egg.png" width="132" height="125" alt="たまご"></div>
+      <div class="name">たまご</div>
+      <div class="when">ここからはじまります</div>
+    </li>
+    <li>
+      <div class="art"><img class="px" src="images/stage-hatchling.png" width="132" height="125" alt="稚メンダコ"></div>
+      <div class="name">稚メンダコ</div>
+      <div class="when">いちばん早くて<br>約 10 時間</div>
+    </li>
+    <li>
+      <div class="art"><img class="px" src="images/stage-juvenile.png" width="132" height="125" alt="若メンダコ"></div>
+      <div class="name">若メンダコ</div>
+      <div class="when">いちばん早くて<br>約 3 日</div>
+    </li>
+    <li>
+      <div class="art"><img class="px" src="images/stage-adult.png" width="132" height="125" alt="メンダコ"></div>
+      <div class="name">メンダコ</div>
+      <div class="when">いちばん早くて<br>約 10 日</div>
+    </li>
+    <li>
+      <div class="art"><img class="px" src="images/stage-elder.png" width="132" height="125" alt="ぬしメンダコ"></div>
+      <div class="name">ぬしメンダコ</div>
+      <div class="when">いちばん早くて<br>約 31 日</div>
+    </li>
+  </ul>
+  <p>日数は、たまごからの合計です。おなか・げんき・なつきがずっと満点だったときの、いちばん早い目安です。実際は、これより少し長くかかります。</p>
+
+  <h3>世話は 3 つ</h3>
+  <div class="care">
+    <div class="care-item">
+      <span class="mini"><img class="px" src="images/pose-eat.png" width="64" height="70" alt="ごはんを食べるメンダコ"></span>
+      <div>
+        <h4>ごはん</h4>
+        <p>メンダコの体を <strong>ダブルクリック</strong> します。おなかが増えて、なつきも少し上がります。</p>
+        <p>おなかは、起きているあいだに約 1 日（24 時間）で空になります。おなかが 25 以下になると、育たなくなります。</p>
+        <p>おなかがいっぱい（90 以上）のときと、寝ているときは、食べません。</p>
+      </div>
+    </div>
+    <div class="care-item">
+      <span class="mini"><img class="px" src="images/pose-happy.png" width="64" height="70" alt="喜ぶメンダコ"></span>
+      <div>
+        <h4>なでる</h4>
+        <p>メンダコの体の上で、ボタンを押さずに、カーソルを <strong>左右に何度か動かします</strong>。なつきが上がります。</p>
+        <p>なつきが上がるのは 10 分に 1 回までです。それより早くなでても、喜んでくれますが、なつきは増えません。放っておくと、なつきは少しずつ下がります（満点から 0 まで約 20 日）。</p>
+      </div>
+    </div>
+    <div class="care-item">
+      <span class="mini"><img class="px" src="images/pose-sleep.png" width="64" height="70" alt="眠るメンダコ"></span>
+      <div>
+        <h4>寝る</h4>
+        <p>夜の 23 時から朝の 7 時までのあいだに、げんきが 70 より低いと、自分で寝ます。げんきが 15 以下になったときは、昼でも寝ます。</p>
+        <p>寝ているあいだは、げんきが回復します（空から満タンまで約 7 時間）。育つ速さもほとんど変わりません。ただし、ごはんとなでるは受けつけません。</p>
+        <p>メニューの <span class="ui">寝かせる</span> / <span class="ui">起こす</span> でも切りかえられます。昼間にげんきが十分あるときは、寝かせてもすぐに起きてしまいます。</p>
+      </div>
+    </div>
+  </div>
+  <p>おなか・げんき・なつきが高いほど、早く育ちます。ごはんを忘れても、メンダコがいなくなることはありません。</p>
+
+  <h3>ステータスの見方</h3>
+  <p>メンダコの上にカーソルを乗せると、ステータスカードが出ます。</p>
+  <figure class="shot">
+    <img class="px" src="images/scene-hover.png" width="340" height="308" alt="メンダコの上に出たステータスカード。おなか、げんき、なつきの 3 本の棒と、次の姿までの進み具合が出ている">
+    <figcaption>カーソルを乗せたときのようす。</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <tbody>
+        <tr><th scope="row"><span class="dot pink"></span>おなか</th><td>ごはんで増え、時間がたつと減ります。</td></tr>
+        <tr><th scope="row"><span class="dot teal"></span>げんき</th><td>起きていると減り、寝ると回復します。</td></tr>
+        <tr><th scope="row"><span class="dot gold"></span>なつき</th><td>ごはんとなでるで増え、放っておくと少しずつ減ります。</td></tr>
+        <tr><th scope="row">つぎの すがたまで</th><td>次の姿までの進み具合です。ぬしメンダコになると「もう じゅうぶん おおきい」と出ます。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>名前の下には、いまの気分が出ます。</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>気分</th><th>こんなとき</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ごきげん</th><td>おなかが 60 以上、げんきが 50 以上、なつきが 55 以上のとき</td></tr>
+        <tr><th scope="row">ふつう</th><td>ほかのどれにも当てはまらないとき</td></tr>
+        <tr><th scope="row">おなかぺこぺこ</th><td>おなかが 25 以下のとき。ごはんをあげましょう</td></tr>
+        <tr><th scope="row">ねむねむ</th><td>げんきが 20 以下のとき</td></tr>
+        <tr><th scope="row">かまってほしい</th><td>なつきが 20 以下のとき。なでてあげましょう</td></tr>
+        <tr><th scope="row">しょんぼり</th><td>おなかが 15 以下で、なつきも 25 以下のとき</td></tr>
+        <tr><th scope="row">すやすや</th><td>寝ているとき</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>タスクトレイのアイコンを左クリックすると、同じ内容が通知で出ます。</p>
+
+  <h3>アプリを閉じているあいだも、時間は進みます</h3>
+  <p>メンダコの時間は、現実の時計で進みます。アプリを終了していても、パソコンの電源を切っていても、その間にお腹はすきますし、育ちます。</p>
+  <p>ただし、起動したときにまとめて進むのは、<strong>最大 3 日分</strong>です。それより長くあけたときは、直前の 3 日分だけを数えます。帰ってきたときは「おかえりなさい」と通知が出ます。おなかがすいているので、ごはんをあげてください。</p>
+</section>
+
+<!-- 3 さわる -->
+<section id="touch">
+  <h2><span class="num">3</span>さわる</h2>
+  <p class="lead">メンダコの体の上だけが操作できます。まわりの透明な部分のクリックは、下のウィンドウにそのまま届きます。</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>操作</th><th>どうなるか</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">なでる</th><td>体の上でボタンを押さずに、カーソルを左右に何度か動かします。喜んでハートを出します。</td></tr>
+        <tr><th scope="row">つつく</th><td>1 回クリックします。びっくりして、ぴょんと跳ねます。それだけで、何も変わりません。</td></tr>
+        <tr><th scope="row">ごはん</th><td>ダブルクリックします。もぐもぐ食べます。</td></tr>
+        <tr><th scope="row">つまむ</th><td>体の上でボタンを押したまま動かします。つまんで運べます。放すとふわふわ降りて、その場所のタスクバーに居着きます。別のモニタへも運べます。場所は覚えているので、次に起動したときも同じところにいます。</td></tr>
+        <tr><th scope="row">カーソルを乗せる</th><td>ステータスカードが出ます。カーソルが乗っているあいだは、泳ぎません。</td></tr>
+        <tr><th scope="row">右クリック</th><td>メニューが出ます（下の表）。</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>何もしないときは、ひとりで泳いだり、きょろきょろしたり、あくびをしたり、ぺたんと平たくなったりします。</p>
+
+  <h3>メニュー</h3>
+  <p>メンダコを右クリックするか、タスクトレイのアイコンを右クリックすると出ます。トレイのアイコンが見つからないときは、タスクバー右側の「^」の中を見てください。</p>
+  <div class="table-wrap">
+    <table class="menu">
+      <thead><tr><th>項目</th><th>はたらき</th><th class="center">メンダコ</th><th class="center">トレイ</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">ごはんをあげる</th><td>ダブルクリックと同じです。</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">なでる</th><td>なでたことにします。</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">寝かせる / 起こす</th><td>寝ているときは「起こす」に変わります。</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">ようすを見る</th><td>おなか・げんき・なつきを通知で見せます。</td><td class="center">－</td><td class="center">○</td></tr>
+        <tr><th scope="row">もちもの</th><td>拾ったアイテムを売る・置く窓を開きます。（<a href="#items">4</a>）</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">おみせ</th><td>飾りを買う・付ける・外す窓を開きます。（<a href="#shop">6</a>）</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">Windows 起動時に開始</th><td>チェックを付けると、パソコンを起動したときに自動で始まります。</td><td class="center">－</td><td class="center">○</td></tr>
+        <tr><th scope="row">全画面アプリ中は隠す</th><td>ゲームやプレゼンの邪魔にならないよう、全画面のあいだは隠れます。はじめからオンです。</td><td class="center">○</td><td class="center">○</td></tr>
+        <tr><th scope="row">終了</th><td>メンダコを終了します。そのときの状態は保存されます。</td><td class="center">○</td><td class="center">○</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>トレイのアイコンを左クリックすると、「ようすを見る」と同じ通知が出ます。</p>
+</section>
+
+<!-- 4 アイテムを拾う -->
+<section id="items">
+  <h2><span class="num">4</span>アイテムを拾う</h2>
+  <p class="lead">メンダコ（4 つめの姿）に育つと、散歩のついでに、アイテムを拾ってくるようになります。</p>
+
+  <ul>
+    <li><strong>3 時間に 1 個</strong>、拾ってきます。メンダコに育った時から数えはじめるので、最初の 1 個は、育って 3 時間後です。ぬしメンダコになっても同じです。</li>
+    <li>アイテムは全部で <strong>100 種類</strong>あります。食べ物 15 種、草花や素材 22 種、道具や武具（ポーションなど）38 種、宝物 25 種です。</li>
+    <li>宝物は、まれにしか拾えません。目安は 40 回に 1 回ほどです。</li>
+    <li>アプリを閉じているあいだも拾います（数えるのは最大 3 日分までです）。拾うと通知が出ます。</li>
+  </ul>
+
+  <h3>もちもの</h3>
+  <p>メニューの <span class="ui">もちもの</span> を開くと、拾ったアイテムが一覧で見られます。持てるのは <strong>20 個まで</strong>です。同じアイテムも 1 個ずつ数えます。</p>
+  <p>20 個になると、拾えません。そのあいだに過ぎた分を、あとでまとめて拾うこともありません。早めに売って、あきを作ってあげてください。</p>
+
+  <div class="window-pair">
+    <figure>
+      <div class="window"><div class="bar">もちもの</div><img src="images/window-inventory.png" width="360" height="500" alt="もちものの窓。赤いポーション、パン、りんご×3 などが並び、それぞれに「おく」ボタンと売値が出ている。右上にかいがらの数、下に「うる」と「とじる」のボタン"></div>
+      <figcaption>もちものの窓（テスト用のデータで描いたものです）。</figcaption>
+    </figure>
+  </div>
+
+  <h3>うる</h3>
+  <p>アイテムの行を選んで <span class="ui">うる</span> を押すと、1 個ずつ売れて、<strong>かいがら</strong>がもらえます。右上の数字が、いま持っているかいがらです。</p>
+  <p>売値はアイテムごとに決まっていて、1 かいがらから 100 かいがらまでです。食べ物は 1〜3 かいがら、宝物は 30〜100 かいがらです。かいがらは、アイテムを売ったときにだけ増えます。</p>
+  <p>売らずに置いて遊ぶこともできます。次の節を見てください。</p>
+</section>
+
+<!-- 5 置いて遊ぶ -->
+<section id="place">
+  <h2><span class="num">5</span>置いて遊ぶ</h2>
+  <p class="lead">持っているアイテムは、タスクバーの上に置けます。置くと、メンダコが泳いで近寄ってきます。</p>
+
+  <ol>
+    <li>メニューの <span class="ui">もちもの</span> を開きます。</li>
+    <li>置きたいアイテムの行にある <span class="ui">おく</span> を押します。</li>
+    <li>メンダコの近くのタスクバーの上に、アイテムが置かれます。</li>
+  </ol>
+  <p>置けるのは、同時に <strong>3 個まで</strong>です。置いたアイテムはもちものから減ります。</p>
+
+  <figure class="shot">
+    <img class="px" src="images/scene-all.png" width="340" height="190" alt="タスクバーの上に立つメンダコと、左にりんご、右に赤い花とダイヤモンドが置かれている">
+    <figcaption>アイテムを 3 個置いたところ。メンダコとの大きさの違いは、実際のとおりです。</figcaption>
+  </figure>
+
+  <h3>分類ごとの反応</h3>
+  <p>メンダコはアイテムのそばまで来て、分類ごとに違う反応をします。</p>
+  <div class="scene-grid">
+    <figure><img class="px" src="images/scene-food.png" width="340" height="190" alt="りんごを食べるメンダコ"><figcaption><strong>食べ物</strong>。もぐもぐ食べます。</figcaption></figure>
+    <figure><img class="px" src="images/scene-material.png" width="340" height="190" alt="赤い花のそばで喜ぶメンダコ"><figcaption><strong>草花・素材</strong>。喜びます。</figcaption></figure>
+    <figure><img class="px" src="images/scene-treasure.png" width="340" height="190" alt="ダイヤモンドに見とれて喜ぶメンダコ"><figcaption><strong>宝物</strong>。目を丸くして見とれます。</figcaption></figure>
+    <figure><img class="px" src="images/scene-gear.png" width="340" height="190" alt="ポーションをつついてびっくりするメンダコ"><figcaption><strong>道具・武具</strong>。つついて、びっくりします。</figcaption></figure>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>分類（例）</th><th>反応</th><th>そのあと</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">食べ物<small>りんご、パン、魚、ケーキ</small></th><td>食べます。ごはんと同じで、おなかとなつきが増えます。</td><td>食べたアイテムは消えます。おなかがいっぱい（90 以上）のときは、食べずに残します。</td></tr>
+        <tr><th scope="row">草花・素材<small>赤い花、四つ葉のクローバー</small></th><td>喜びます。</td><td>そのまま残ります。</td></tr>
+        <tr><th scope="row">宝物<small>ダイヤモンド、金の指輪</small></th><td>見とれます。</td><td>そのまま残ります。</td></tr>
+        <tr><th scope="row">道具・武具<small>赤いポーション、巻物</small></th><td>つついて、びっくりします。</td><td>そのまま残ります。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ul>
+    <li>一度反応したアイテムには、<strong>10 分</strong>のあいだ近寄りません。</li>
+    <li>寝ているあいだと、たまごのあいだは、近寄りません。</li>
+    <li>置いたアイテムを <strong>クリック</strong>すると、もちものに戻ります。もちものがいっぱいのときは戻らないので、先に売ってください。</li>
+    <li>片付けて置き直すと、新しいアイテムとして数えます。すぐにまた反応します。</li>
+  </ul>
+</section>
+
+<!-- 6 おみせと着せ替え -->
+<section id="shop">
+  <h2><span class="num">6</span>おみせと着せ替え</h2>
+  <p class="lead">かいがらを使って、メンダコに飾りを付けられます。飾りは見た目だけで、育ち方は変わりません。</p>
+
+  <p>メニューの <span class="ui">おみせ</span> を開きます。飾りは 5 種類で、値段は 160〜360 かいがらです。</p>
+
+  <ul class="dressed-grid">
+    <li><div class="art"><img class="px" src="images/accessory-flower.png" width="138" height="132" alt="いちりんの花を付けたメンダコ"></div><div class="name">いちりんの花</div><div class="price">160 かいがら</div></li>
+    <li><div class="art"><img class="px" src="images/accessory-strawhat.png" width="138" height="132" alt="むぎわらぼうしをかぶったメンダコ"></div><div class="name">むぎわらぼうし</div><div class="price">220 かいがら</div></li>
+    <li><div class="art"><img class="px" src="images/accessory-sunflowercrown.png" width="138" height="132" alt="ひまわりのかんむりを付けたメンダコ"></div><div class="name">ひまわりのかんむり</div><div class="price">260 かいがら</div></li>
+    <li><div class="art"><img class="px" src="images/accessory-tophat.png" width="138" height="132" alt="ちいさなシルクハットをかぶったメンダコ"></div><div class="name">ちいさなシルクハット</div><div class="price">310 かいがら</div></li>
+    <li><div class="art"><img class="px" src="images/accessory-pearlearrings.png" width="138" height="132" alt="しんじゅのイヤリングを付けたメンダコ"></div><div class="name">しんじゅのイヤリング</div><div class="price">360 かいがら</div></li>
+  </ul>
+
+  <h3>買う・付ける・外す</h3>
+  <ol>
+    <li>かいがらが足りているときは、<span class="ui">かう</span> が押せます。足りないときは「あと ○ かいがら」と出て、押せません。</li>
+    <li>買っただけでは付きません。買うと <span class="ui">つける</span> に変わるので、押してください。</li>
+    <li>付けているあいだは <span class="ui">はずす</span> に変わります。付け外しは何度でもでき、かいがらはかかりません。</li>
+  </ol>
+  <p>付けられるのは、同時に 1 つです。別の飾りを付けると、いま付けているものは外れます。</p>
+
+  <div class="window-pair">
+    <figure>
+      <div class="window"><div class="bar">おみせ</div><img src="images/window-shop.png" width="400" height="670" alt="おみせの窓。5 種類の飾りが安い順に並び、いちりんの花は「つけているよ」、むぎわらぼうしは「もっているよ」、ひまわりのかんむりは「かえるよ」、ほかは「あと ○ かいがら」と出ている"></div>
+      <figcaption>おみせの窓（テスト用のデータで描いたものです）。</figcaption>
+    </figure>
+  </div>
+
+  <p>かいがらは、アイテムを売らないと増えません。食べ物は 1〜3 かいがらなので、買い物には宝物（30〜100 かいがら）が頼りになります。</p>
+</section>
+
+<!-- 7 こまったとき -->
+<section id="help">
+  <h2><span class="num">7</span>こまったとき</h2>
+
+  <details>
+    <summary>メンダコが見つからない・出てこない</summary>
+    <div class="body">
+      <ul>
+        <li>タスクバー右側の「^」の中に、メンダコのアイコンがありますか。あれば、起動はしています。右クリックして <span class="ui">ようすを見る</span> を選ぶと確かめられます。</li>
+        <li>全画面のゲームやプレゼンの最中は、隠れています。全画面をやめると出てきます。</li>
+        <li>メンダコは 1 匹しか起動できません。すでに起動していると、2 回目は何も起きません。</li>
+        <li>モニタが複数あるときは、Windows の設定で「タスクバーをすべてのディスプレイに表示する」をオンにしてください。オフのモニタには住めません。</li>
+      </ul>
+    </div>
+  </details>
+
+  <details>
+    <summary>全画面のゲームやプレゼンの上に出てしまう（隠れてほしい・隠れてほしくない）</summary>
+    <div class="body">
+      <p>メンダコを右クリックして、<span class="ui">全画面アプリ中は隠す</span> の切りかえをします。チェックが付いていると、全画面のあいだは隠れます。はじめから付いています。</p>
+      <p>ただし、サブモニタで全画面にしたアプリは見つけられません。そのモニタにいるメンダコは、出たままになります。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>パソコンを起動したら自動で始めたい</summary>
+    <div class="body">
+      <p>タスクトレイのアイコンを右クリックして、<span class="ui">Windows 起動時に開始</span> にチェックを付けます。外すと、自動では始まらなくなります。</p>
+      <p>自動で始まるのは、チェックを付けたときの <code>Mendako.exe</code> です。ほかの場所へ動かしたら、いったんチェックを外して、付け直してください。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>育てたデータはどこにある？</summary>
+    <div class="body">
+      <p>次のフォルダに、2 つのファイルがあります。</p>
+      <div class="path"><code>%LOCALAPPDATA%\Mendako</code><button class="copy" type="button" data-copy="%LOCALAPPDATA%\Mendako">コピー</button></div>
+      <ul>
+        <li><code>state.json</code> … メンダコの育ちぐあい、もちもの、かいがら、飾り</li>
+        <li><code>settings.json</code> … 居場所と、全画面で隠す設定</li>
+      </ul>
+      <p>エクスプローラーの上のアドレス欄に、上のパスを貼りつけて Enter を押すと、フォルダが開きます。</p>
+      <p>1 からやり直して、新しいたまごから育てたいときは、メンダコを終了してから <code>state.json</code> を消します。次に起動すると、新しいたまごが現れます。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>急にたまごに戻った（state.json.bad があるとき）</summary>
+    <div class="body">
+      <p><code>state.json</code> が壊れていて読めないと、メンダコは新しいたまごから始まります。このとき、読めなかったファイルは消されません。同じフォルダに <code>state.json.bad</code> という名前で残ります。すでに <code>.bad</code> があるときは、<code>state.json.20261118-120000.bad</code> のように、日時が付きます。<code>settings.json</code> も同じです。</p>
+      <p>元に戻したいときは、メンダコを終了してから、新しくできた <code>state.json</code> を消し、<code>state.json.bad</code> の名前を <code>state.json</code> に変えます。ただし、壊れた中身は、戻しても読めないことがあります。</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>やめたい（アンインストール）</summary>
+    <div class="body">
+      <p>インストーラは使っていないので、消すのは 3 つです。</p>
+      <ol>
+        <li>自動で始める設定にしていたら、タスクトレイのアイコンを右クリックして、<span class="ui">Windows 起動時に開始</span> のチェックを外します。</li>
+        <li>メンダコを右クリックして、<span class="ui">終了</span> を選びます。</li>
+        <li><code>Mendako.exe</code> を捨てます。育てたデータも消すなら、フォルダ <code>%LOCALAPPDATA%\Mendako</code> も消します。</li>
+      </ol>
+      <p>これで何も残りません。</p>
+      <details>
+        <summary>コマンドで消すとき（PowerShell）</summary>
+        <div class="body">
+<pre><code># 1. 常駐を止める
+Stop-Process -Name Mendako -ErrorAction SilentlyContinue
+# 2. 自動起動の登録を消す
+Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name Mendako -ErrorAction SilentlyContinue
+# 3. 育成状態と設定を消す
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Mendako"</code></pre>
+        </div>
+      </details>
+    </div>
+  </details>
+
+  <details>
+    <summary>それでも解決しない・不具合を見つけた</summary>
+    <div class="body">
+      <p><a href="https://github.com/izugch73/mendako/issues">GitHub の Issues</a> に書いてください。</p>
+    </div>
+  </details>
+</section>
+
+</main>
+
+<footer>
+  <p><a href="https://github.com/izugch73/mendako/releases/latest">最新版をダウンロード</a> ・ <a href="https://github.com/izugch73/mendako">GitHub のページ（ソースコード）</a></p>
+  <p>このページは、v1.2.0 の内容に合わせて書いています。</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  // いま読んでいる節を、目次で示す
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav.toc a'));
+  var sections = links
+    .map(function (a) { return document.querySelector(a.getAttribute('href')); })
+    .filter(Boolean);
+
+  if ('IntersectionObserver' in window && sections.length) {
+    var visible = {};
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) { visible[entry.target.id] = entry.isIntersecting; });
+      var current = null;
+      sections.forEach(function (s) { if (visible[s.id] && current === null) { current = s.id; } });
+      links.forEach(function (a) {
+        if (current !== null && a.getAttribute('href') === '#' + current) {
+          a.setAttribute('aria-current', 'true');
+        } else {
+          a.removeAttribute('aria-current');
+        }
+      });
+    }, { rootMargin: '0px 0px -60% 0px' });
+    sections.forEach(function (s) { observer.observe(s); });
+  }
+
+  // フォルダのパスをコピーする。クリップボードが使えない環境では、ボタンを隠す
+  var buttons = document.querySelectorAll('button.copy');
+  Array.prototype.forEach.call(buttons, function (button) {
+    if (!navigator.clipboard || !navigator.clipboard.writeText) {
+      button.hidden = true;
+      return;
+    }
+    button.addEventListener('click', function () {
+      navigator.clipboard.writeText(button.getAttribute('data-copy')).then(function () {
+        var before = button.textContent;
+        button.textContent = 'コピーしました';
+        setTimeout(function () { button.textContent = before; }, 1800);
+      }, function () {
+        button.hidden = true;
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
