@@ -74,6 +74,38 @@ public static class MendakoSprites
         "...KRRRRRRRRRRRRK...",
     };
 
+    /// <summary>
+    /// 飾りを付ける点。耳ビレのコマごとに、上の頭の絵のどのドットに当たるかを持つ。
+    /// 頭の絵を直したらここも合わせないと、飾りが体から浮く。
+    /// </summary>
+    private static readonly Dictionary<FinPose, Dictionary<Anchor, (int X, int Y)>> Anchors = new()
+    {
+        [FinPose.Up] = new()
+        {
+            [Anchor.Crown] = (10, 0),
+            [Anchor.LeftFinBase] = (6, 0),
+            [Anchor.RightFinBase] = (13, 0),
+            [Anchor.LeftFinTip] = (1, 2),
+            [Anchor.RightFinTip] = (18, 2),
+        },
+        [FinPose.Mid] = new()
+        {
+            [Anchor.Crown] = (10, 0),
+            [Anchor.LeftFinBase] = (4, 1),
+            [Anchor.RightFinBase] = (15, 1),
+            [Anchor.LeftFinTip] = (1, 3),
+            [Anchor.RightFinTip] = (18, 3),
+        },
+        [FinPose.Droop] = new()
+        {
+            [Anchor.Crown] = (10, 0),
+            [Anchor.LeftFinBase] = (4, 1),
+            [Anchor.RightFinBase] = (15, 1),
+            [Anchor.LeftFinTip] = (2, 5),
+            [Anchor.RightFinTip] = (17, 5),
+        },
+    };
+
     // --- 胴 (8-16 行)。目は後からスタンプする ---
     // 耳ビレをはっきり突き出させるため、胴は頭より細い 12 ドット幅にしてある
 
@@ -141,6 +173,23 @@ public static class MendakoSprites
 
     private static BitmapSource? _heart;
 
+    /// <summary>飾りを付ける本体上の点。</summary>
+    public enum Anchor
+    {
+        /// <summary>頭頂の中央。細い天面の中央 2 ドットのうち右側。</summary>
+        Crown,
+
+        /// <summary>左の耳ビレの付け根。天面と耳ビレの段差にできる透明なくぼみ。</summary>
+        LeftFinBase,
+
+        RightFinBase,
+
+        /// <summary>左の耳ビレの先端のうち一番下のドット。</summary>
+        LeftFinTip,
+
+        RightFinTip,
+    }
+
     /// <summary>展開済みのコマ。あたり判定に使うのでドットの行も一緒に持つ。</summary>
     public sealed record Frame(BitmapSource Bitmap, IReadOnlyList<string> Rows);
 
@@ -175,6 +224,16 @@ public static class MendakoSprites
         var frame = new Frame(PixelSprite.Create(rows, Palette(stage)), rows);
         Cache[key] = frame;
         return frame;
+    }
+
+    /// <summary>
+    /// 本体の上の点のドット座標。<see cref="Get"/> が返すコマと同じ座標系で、
+    /// 耳ビレのコマとぺたんを反映する。
+    /// </summary>
+    public static (int X, int Y) AnchorOf(Anchor anchor, FinPose fin, bool flat)
+    {
+        var (x, y) = Anchors[fin][anchor];
+        return (x, flat ? y + FlatDrop : y);
     }
 
     public static BitmapSource GetSleepMark() =>

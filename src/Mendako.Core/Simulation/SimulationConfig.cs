@@ -1,3 +1,5 @@
+using Mendako.Core.Model;
+
 namespace Mendako.Core.Simulation;
 
 /// <summary>
@@ -6,6 +8,17 @@ namespace Mendako.Core.Simulation;
 /// </summary>
 public sealed record SimulationConfig
 {
+    // Default より前に宣言すること。後ろだと Default の生成時にまだ null で、値段が引けない。
+    private static readonly IReadOnlyDictionary<Accessory, int> DefaultAccessoryPrices =
+        new Dictionary<Accessory, int>
+        {
+            [Accessory.Flower] = 160,
+            [Accessory.StrawHat] = 220,
+            [Accessory.SunflowerCrown] = 260,
+            [Accessory.TopHat] = 310,
+            [Accessory.PearlEarrings] = 360,
+        };
+
     public static readonly SimulationConfig Default = new();
 
     /// <summary>1 ティックの実時間。</summary>
@@ -81,4 +94,41 @@ public sealed record SimulationConfig
 
     /// <summary>なでてもなつき度が上がらなくなるクールダウン。</summary>
     public TimeSpan PetCooldown { get; init; } = TimeSpan.FromMinutes(10);
+
+    // --- 拾う・持ち物 ---
+
+    /// <summary>アイテムを拾い始める成長段階。この段階以上で拾う。</summary>
+    public GrowthStage ForageFromStage { get; init; } = GrowthStage.Adult;
+
+    /// <summary>拾い始める段階のメンダコが 1 個拾うまでの間隔。</summary>
+    public TimeSpan ForageInterval { get; init; } = TimeSpan.FromHours(3);
+
+    /// <summary>持ち物の上限 (同じアイテムも 1 個ずつ数える)。</summary>
+    public int MaxInventoryItems { get; init; } = 20;
+
+    /// <summary>「よく拾う」アイテム 1 種類あたりの抽選の重み。</summary>
+    public double CommonForageWeight { get; init; } = 10d;
+
+    /// <summary>「ときどき拾う」アイテム 1 種類あたりの抽選の重み。</summary>
+    public double OccasionalForageWeight { get; init; } = 3d;
+
+    /// <summary>「まれに拾う」アイテム 1 種類あたりの抽選の重み。</summary>
+    public double RareForageWeight { get; init; } = 0.5d;
+
+    // --- 置く ---
+
+    /// <summary>タスクバーに同時に置ける数。</summary>
+    public int MaxScatteredItems { get; init; } = 3;
+
+    // --- おみせ ---
+
+    /// <summary>飾りの値段 (かいがら)。ここに無い飾りは売っていない。</summary>
+    public IReadOnlyDictionary<Accessory, int> AccessoryPrices { get; init; } = DefaultAccessoryPrices;
+
+    internal double ForageWeightOf(ItemFrequency frequency) => frequency switch
+    {
+        ItemFrequency.Common => CommonForageWeight,
+        ItemFrequency.Occasional => OccasionalForageWeight,
+        _ => RareForageWeight,
+    };
 }

@@ -9,6 +9,9 @@ Windows のタスクバーの上に住みつくメンダコを育てる常駐ア
 - たまご → 稚メンダコ → 若メンダコ → メンダコ → ぬしメンダコ の 5 段階に育つ
 - アプリが動いていない時間も経過する（オフライン進行、上限つき）
 - 全画面ゲーム・プレゼン中は自動で引っ込む
+- メンダコ（Adult）に育つと、3 時間ごとにアイテムを 1 個拾ってくる（100 種、持ち物は 20 個まで）
+- 持ち物のアイテムは「もちもの」で売ってかいがらに換えるか、タスクバーに置ける。置くとメンダコが近寄って、分類ごとに違う反応をする
+- 「おみせ」でかいがらを使って飾りを買い、付け外しできる（5 種、160〜360 かいがら）
 
 ## 操作
 
@@ -20,15 +23,19 @@ Windows のタスクバーの上に住みつくメンダコを育てる常駐ア
 | ドラッグ | つまんで運ぶ。放すとふわふわ降りて、そのモニタのタスクバーに居着く（位置は記憶される） |
 | ホバー | ステータスカードを表示 |
 | 右クリック / トレイアイコン | メニュー |
+| メニューの「もちもの」 | 持っているアイテムを売る・タスクバーに置く |
+| メニューの「おみせ」 | 飾りを買う・付ける・外す |
+| 置いたアイテムをクリック | 持ち物に戻す（持ち物がいっぱいのときは戻らない） |
 
 ## 構成
 
 ```
 Mendako.sln
 ├─ src/Mendako.Core/        UI にも時計にも依存しない育成シミュレーション
-│   ├─ Model/               MendakoState / GrowthStage / Mood
+│   ├─ Model/               MendakoState / GrowthStage / Mood / Accessory / ItemCatalog（アイテム 100 種）/ ScatteredItem
 │   ├─ Behavior/            BehaviorMachine（状態 → ポーズ）, StrokeDetector（なで判定）
-│   └─ Simulation/          Simulator（すべて純粋関数）, SimulationConfig
+│   └─ Simulation/          Simulator（すべて純粋関数）, SimulationConfig,
+│                           Foraging（拾う）, Inventory（売る）, Scattering（置く・反応）, Shop（飾りの売買）
 ├─ src/Mendako.Platform/    Win32 の隔離層
 │   ├─ NativeMethods.cs     P/Invoke はここだけ
 │   ├─ TaskbarLocator.cs    全モニタのタスクバー矩形と辺を取得
@@ -36,10 +43,14 @@ Mendako.sln
 │   ├─ UserPresence.cs      全画面アプリ／プレゼン検出
 │   └─ AutoStart.cs         HKCU の Run キー
 ├─ src/Mendako.App/         WPF
-│   ├─ Sprites/             ドット絵データとビットマップ展開
-│   ├─ Views/               PetWindow（オーバーレイ）, MendakoVisual（スプライト表示）
+│   ├─ Sprites/             ドット絵データとビットマップ展開（メンダコ本体は MendakoSprites、飾りは AccessorySprites）
+│   ├─ Assets/Items/        アイテムのアイコン（PNG 100 枚、Resource として埋め込む）
+│   ├─ Views/               PetWindow（オーバーレイ）, MendakoVisual（スプライト表示）,
+│   │                       InventoryWindow（もちもの）, ShopWindow / AccessoryRow（おみせ）,
+│   │                       ScatterLayer / ScatterItemWindow（タスクバーに置いたアイテム）
 │   └─ Services/            永続化・トレイ・セッション
 ├─ tools/Mendako.IconGen/   ドット絵から exe の .ico を焼くビルド時の道具
+├─ tools/Mendako.SpritePreview/  ドット絵を PNG に書き出して目視確認する道具（下の「確認用ツール」）
 └─ tests/Mendako.Core.Tests/
 ```
 
@@ -72,8 +83,11 @@ WPF の `Image` は透明ピクセルでも矩形全体がヒットテスト対�
 
 **ドット絵をソースに直接書く**
 `MendakoSprites` が 20 x 17 ドットの絵を 1 ドット = 1 文字の文字列で持ち、
-実行時に `PixelSprite` が `BitmapSource` へ展開する。PNG を置かずに済むので
-バイナリ資産ゼロのまま、差分もレビューできる。トレイアイコンも `System.Drawing` で実行時に描いている。
+実行時に `PixelSprite` が `BitmapSource` へ展開する。メンダコ本体と飾りは PNG を置かずに済むので、
+差分もレビューできる。トレイアイコンも `System.Drawing` で実行時に描いている。
+例外はアイテムのアイコンだけで、`src/Mendako.App/Assets/Items/` に PNG を 100 枚置き、
+`Resource` として埋め込んでいる。単一ファイル発行でも exe の中から読める。
+この PNG は作者の自作（AI 生成を含む）の絵で、文字列には直さずそのまま置いている。
 
 頭（耳ビレを含む上 8 行）と胴（下 9 行）を別に持ち、組み合わせ + 目のスタンプでコマを合成する。
 耳ビレ 3 種 × 目 4 種に、視線（左・正面・右）と「ぺたん」の有無を掛けたコマを、使ったぶんだけ
@@ -85,7 +99,7 @@ WPF の `Image` は透明ピクセルでも矩形全体がヒットテスト対�
 浮遊オフセットもドット単位に丸めてから実寸に直さないと、半端な位置でドットが滲む。
 
 **exe のアイコンもドット絵から焼く**
-`.ico` を置くとバイナリ資産ゼロが崩れるので、`tools/Mendako.IconGen` がビルド時に
+`.ico` を置くとバイナリがリポジトリに入るので、`tools/Mendako.IconGen` がビルド時に
 `src/Mendako.App/obj/mendako.ico` を生成し、`ApplicationIcon` がそれを指す。
 生成物は gitignore 済みの `obj/` に落ちるので、リポジトリに入るのはドット絵の文字列だけ。
 
@@ -98,6 +112,24 @@ WPF の `Image` は透明ピクセルでも矩形全体がヒットテスト対�
 大きいコマを非圧縮の DIB で入れると 256 x 256 だけで 270 KB になるため、64 px 以上は PNG のコマにしてある。
 結果、全 6 サイズ入りで 17 KB。小さいコマを DIB のままにしているのは、
 GDI+ の `Icon.ToBitmap()` が PNG のコマを読めないため（Windows のシェルが使う WIC は読める）。
+
+**アイテムを拾う・売る・置く**
+`Simulator.Advance` は、成長段階が `SimulationConfig.ForageFromStage`（既定は Adult）以上のあいだ、
+`ForageInterval`（3 時間）ごとにアイテムを 1 個拾う。数え始めは Adult に達したティックの終わりで、
+それ以前の時間は数えない。持ち物は `MaxInventoryItems`（20 個）までで、いっぱいで拾えなかった時刻も
+「過ぎたもの」として基準を進めるので、売ったあとに溜まっていた分をまとめて拾うことはない。
+抽選は `ItemCatalog`（100 種）の頻度（よく・ときどき・まれに）で重みを付ける。
+
+持ち物のアイテムは、売ると 1 個ずつ決まった値段のかいがらになる。`Scattering.Place` でタスクバーに置くこともでき、
+同時に置けるのは `MaxScatteredItems`（3 個）まで。置いたアイテムにはメンダコが近寄り、
+分類で反応が決まる。食べ物は食べる（ごはんと同じ効果。満腹だと食べずに残す）、素材は喜ぶ、
+宝物は見とれる、道具はつついてびっくりする。一度反応したアイテムには `BehaviorMachine.ScatterCooldownSeconds`（10 分）近寄らない。
+片付けて置き直すと別のアイテムとして数える。
+
+**飾りは見た目だけの層**
+`AccessorySprites` が、本体のコマの上に重ねる飾りの層（上と左右に余白を足した絵）を持つ。
+飾りは「おみせ」で 160〜360 かいがら（`SimulationConfig.AccessoryPrices`）で買い、付けられるのは 1 つだけ。
+Adult と Elder は同じ頭の絵で倍率だけが違うので、同じ層をどちらにも重ねる。
 
 **保存はアトミック、間隔を空ける**
 一時ファイルに書いてから `File.Replace`。3 分間隔＋`SessionEnding`＋終了時に保存し、毎ティックは書かない。
@@ -121,6 +153,21 @@ WPF の `Left` / `Top` は DIP で、DPI の違うモニタをまたぐとどの
 **常駐アプリとしての省リソース**
 `CompositionTarget.Rendering` は使わず `DispatcherTimer` を 30fps で回し、
 就寝中かつ非ホバー時は約 7fps に落とす。全画面アプリ検出時はタイマーごと止める。
+
+## 確認用ツール
+
+`tools/Mendako.SpritePreview` は、ドット絵を PNG に書き出して目視で確かめる道具。
+アプリは起動しない。
+
+```powershell
+dotnet run --project tools/Mendako.SpritePreview -- out.png --sheet accessories --stage Adult
+```
+
+- `--sheet` は `frames`（既定）/ `motion` / `accessories` / `accessories-visual`。
+  `accessories` は飾りごとの全ポーズの見比べ、`accessories-visual` は飾りを付けた `MendakoVisual`（184 x 186）を実寸で並べる。
+  後者は出力先がそのまま使われるので、2 種類を続けて書き出すときは出力名を変える。
+- `--stage` は `Egg` / `Hatchling` / `Juvenile` / `Adult` / `Elder`
+- `--zoom N` で倍率、`--section 番号,...` で一部の節だけを書き出す
 
 ## ビルド
 
@@ -207,3 +254,6 @@ Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Mendako"
 - ステータスカードが頭の上端に少し重なる。跳ねるしぐさのときは頭がカードの裏に隠れる。
 - `Mendako.Platform` と `PetWindow`（位置決め・落下）にはテストがない。モニタ構成に依存するので、
   混在 DPI の実機で動かして確かめている。
+- アイテムを置いたあとの 10 分の記録（同じアイテムに近寄らない時間）はメモリにだけあり、
+  アプリを再起動すると消える。
+- 飾りの見た目を目視で確かめたのは Adult と Elder だけ。それより若い段階には、おみせでも Adult の絵を出している。

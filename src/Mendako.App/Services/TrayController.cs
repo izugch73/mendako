@@ -37,6 +37,12 @@ public sealed class TrayController : IDisposable
         var statusItem = new ToolStripMenuItem("ようすを見る(&I)");
         statusItem.Click += (_, _) => StatusRequested?.Invoke(this, EventArgs.Empty);
 
+        var inventoryItem = new ToolStripMenuItem("もちもの(&B)");
+        inventoryItem.Click += (_, _) => InventoryRequested?.Invoke(this, EventArgs.Empty);
+
+        var shopItem = new ToolStripMenuItem("おみせ(&H)");
+        shopItem.Click += (_, _) => ShopRequested?.Invoke(this, EventArgs.Empty);
+
         _autoStartItem = new ToolStripMenuItem("Windows 起動時に開始") { CheckOnClick = true };
         _autoStartItem.CheckedChanged += (_, _) =>
         {
@@ -67,6 +73,9 @@ public sealed class TrayController : IDisposable
             new ToolStripSeparator(),
             statusItem,
             new ToolStripSeparator(),
+            inventoryItem,
+            shopItem,
+            new ToolStripSeparator(),
             _autoStartItem,
             _hideOnFullScreenItem,
             new ToolStripSeparator(),
@@ -93,6 +102,10 @@ public sealed class TrayController : IDisposable
     public event EventHandler? SleepToggleRequested;
 
     public event EventHandler? StatusRequested;
+
+    public event EventHandler? InventoryRequested;
+
+    public event EventHandler? ShopRequested;
 
     public event EventHandler? ExitRequested;
 

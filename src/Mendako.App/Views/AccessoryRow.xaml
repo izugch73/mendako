@@ -1,0 +1,59 @@
+<UserControl x:Class="Mendako.App.Views.AccessoryRow"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border x:Name="Frame"
+            Background="{StaticResource PanelBackground}"
+            BorderBrush="Transparent"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="10,8">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 絵は 1 ドット 3 DIP の整数倍で並べる。ここは NearestNeighbor でないとドットが滲む -->
+            <Border Width="84"
+                    Height="68"
+                    CornerRadius="8"
+                    Margin="0,0,12,0"
+                    Background="{StaticResource WindowBackground}">
+                <Canvas x:Name="Preview"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        RenderOptions.BitmapScalingMode="NearestNeighbor"
+                        RenderOptions.EdgeMode="Aliased">
+                    <Image x:Name="BodyImage" />
+                    <Image x:Name="AccessoryImage" />
+                </Canvas>
+            </Border>
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="NameText"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource CardForeground}" />
+                <TextBlock x:Name="PriceText"
+                           FontSize="12"
+                           Margin="0,3,0,0"
+                           Foreground="{StaticResource AccentGold}" />
+                <TextBlock x:Name="StatusText"
+                           FontSize="11"
+                           Margin="0,2,0,0"
+                           Foreground="{StaticResource CardMuted}" />
+            </StackPanel>
+
+            <Button x:Name="ActionButton"
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    MinWidth="68"
+                    Margin="10,0,0,0"
+                    Style="{StaticResource MendakoButton}"
+                    Click="OnActionClick" />
+        </Grid>
+    </Border>
+</UserControl>

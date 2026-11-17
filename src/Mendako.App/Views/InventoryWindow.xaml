@@ -1,0 +1,143 @@
+<Window x:Class="Mendako.App.Views.InventoryWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="もちもの"
+        Width="360"
+        Height="500"
+        MinWidth="320"
+        MinHeight="340"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource WindowBackground}"
+        Foreground="{StaticResource CardForeground}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <Grid Margin="18,16,18,16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,12">
+            <StackPanel HorizontalAlignment="Left">
+                <TextBlock Text="もちもの"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="{StaticResource CardForeground}" />
+                <TextBlock x:Name="CountText"
+                           FontSize="11"
+                           Margin="0,1,0,0"
+                           Foreground="{StaticResource CardMuted}" />
+            </StackPanel>
+            <StackPanel HorizontalAlignment="Right">
+                <TextBlock Text="かいがら"
+                           FontSize="10"
+                           HorizontalAlignment="Right"
+                           Foreground="{StaticResource CardMuted}" />
+                <TextBlock x:Name="ShellsText"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Right"
+                           Foreground="{StaticResource AccentGold}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1">
+            <!-- アイコンは 128px を 40px に縮めて出す。NearestNeighbor だと割り切れない倍率で線が不揃いになる -->
+            <ListBox x:Name="ItemList"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ItemContainerStyle="{StaticResource MendakoListBoxItem}"
+                     RenderOptions.BitmapScalingMode="Linear"
+                     SelectionChanged="OnSelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Image Source="{Binding Icon}" Width="40" Height="40" Margin="0,0,10,0" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Name}"
+                                           FontSize="13"
+                                           TextTrimming="CharacterEllipsis"
+                                           Foreground="{StaticResource CardForeground}" />
+                                <TextBlock Text="{Binding CountText}"
+                                           FontSize="11"
+                                           Margin="6,2,0,0"
+                                           VerticalAlignment="Center"
+                                           Foreground="{StaticResource CardMuted}" />
+                            </StackPanel>
+                            <!-- 行ごとに置ける。選んでから下のボタンを押す手間を省く -->
+                            <Button Grid.Column="2"
+                                    Content="おく"
+                                    Padding="12,4"
+                                    MinWidth="44"
+                                    FontSize="11"
+                                    Margin="8,0,14,0"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource MendakoButton}"
+                                    Click="OnScatterClick" />
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                <TextBlock Text="うれるかいがら"
+                                           FontSize="9"
+                                           HorizontalAlignment="Right"
+                                           Foreground="{StaticResource HintForeground}" />
+                                <TextBlock Text="{Binding Price}"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           HorizontalAlignment="Right"
+                                           Foreground="{StaticResource AccentGold}" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <TextBlock x:Name="EmptyText"
+                       Visibility="Collapsed"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       FontSize="12"
+                       LineHeight="20"
+                       IsHitTestVisible="False"
+                       Foreground="{StaticResource CardMuted}" />
+        </Grid>
+
+        <TextBlock x:Name="MessageText"
+                   Grid.Row="2"
+                   Margin="0,10,0,0"
+                   MinHeight="16"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Foreground="{StaticResource AccentTeal}" />
+
+        <StackPanel Grid.Row="3"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,12,0,0">
+            <Button x:Name="SellButton"
+                    Content="うる"
+                    IsDefault="True"
+                    IsEnabled="False"
+                    Margin="0,0,8,0"
+                    Style="{StaticResource MendakoButton}"
+                    Click="OnSellClick" />
+            <Button Content="とじる"
+                    IsCancel="True"
+                    Style="{StaticResource MendakoButton}"
+                    Click="OnCloseClick" />
+        </StackPanel>
+    </Grid>
+</Window>

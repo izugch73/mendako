@@ -25,6 +25,12 @@ public enum PetAction
     /// <summary>つつかれてびっくりした。</summary>
     Startle,
 
+    /// <summary>宝物のきらきらを見て、目を丸くして喜んでいる。</summary>
+    Admire,
+
+    /// <summary>置いてあるアイテムをつついている。終わるとそのまま <see cref="Startle"/> になる。</summary>
+    Poke,
+
     // --- つまみ上げ (終わりはウィンドウ側が決める) ---
 
     /// <summary>つままれて宙に浮いている。</summary>
@@ -55,4 +61,7 @@ public enum PetAction
 
     /// <summary>タスクバーに沿って泳いで移動する。</summary>
     Swim,
+
+    /// <summary>置いてあるアイテムのほうへ泳いで近寄る。</summary>
+    Approach,
 }

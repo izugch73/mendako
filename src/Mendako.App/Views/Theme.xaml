@@ -1,0 +1,132 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        本体のステータスカードの配色。ここを変えると本体のカードと、もちもの・おみせの窓が一緒に変わる。
+        カードは半透明 (F0) だが、通常のウィンドウの地は透けさせず不透明にしてある。
+    -->
+
+    <SolidColorBrush x:Key="CardBackground" Color="#F0232028" />
+    <SolidColorBrush x:Key="CardForeground" Color="#FFF4EDEF" />
+    <SolidColorBrush x:Key="CardMuted" Color="#FFAFA2A8" />
+    <SolidColorBrush x:Key="TrackBrush" Color="#FF463C43" />
+
+    <SolidColorBrush x:Key="WindowBackground" Color="#FF232028" />
+    <SolidColorBrush x:Key="PanelBackground" Color="#FF2D2931" />
+    <SolidColorBrush x:Key="PanelHover" Color="#FF39343C" />
+    <SolidColorBrush x:Key="HintForeground" Color="#FF7E7278" />
+    <SolidColorBrush x:Key="AccentPink" Color="#FFF2A0AF" />
+    <SolidColorBrush x:Key="AccentTeal" Color="#FF7EC8B4" />
+    <SolidColorBrush x:Key="AccentGold" Color="#FFE0C27E" />
+
+    <Style x:Key="MendakoButton" TargetType="Button">
+        <Setter Property="Foreground" Value="{StaticResource CardForeground}" />
+        <Setter Property="Background" Value="{StaticResource TrackBrush}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="16,6" />
+        <Setter Property="MinWidth" Value="76" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Frame"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="7"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="#FF5A4E57" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="#FF2D2931" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource AccentPink}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="MendakoListBoxItem" TargetType="ListBoxItem">
+        <Setter Property="Foreground" Value="{StaticResource CardForeground}" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="Margin" Value="0,0,0,3" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Frame"
+                            Background="{StaticResource PanelBackground}"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{StaticResource PanelHover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{StaticResource TrackBrush}" />
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource AccentPink}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- 細い縦スクロールバー。標準のものは明るい色で、暗い窓の中で浮く。横スクロールは使わない -->
+    <Style x:Key="ScrollTrackButton" TargetType="RepeatButton">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="RepeatButton">
+                    <Border Background="Transparent" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                        <Track.DecreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource ScrollTrackButton}" />
+                        </Track.DecreaseRepeatButton>
+                        <Track.Thumb>
+                            <Thumb>
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Border Background="#FF5A4E57" CornerRadius="4" Margin="1,0" />
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Track.Thumb>
+                        <Track.IncreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource ScrollTrackButton}" />
+                        </Track.IncreaseRepeatButton>
+                    </Track>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>
