@@ -9,6 +9,7 @@ namespace Mendako.App.Views;
 /// <summary>
 /// アイテムのアイコン。画像は <see cref="ItemId"/> の名前のファイル (Assets/Items/RedPotion.png など) で、
 /// アセンブリに Resource として埋め込んである。単一ファイルで発行しても、別のファイルを探しに行かない。
+/// アセンブリ名を明示して引くので、確認用ツール (SpritePreview) のように別の exe から読んでも同じ絵が出る。
 /// </summary>
 public static class ItemIcons
 {
@@ -21,7 +22,7 @@ public static class ItemIcons
             return cached;
         }
 
-        var image = new BitmapImage(new Uri($"pack://application:,,,/Assets/Items/{id}.png", UriKind.Absolute));
+        var image = new BitmapImage(new Uri($"pack://application:,,,/Mendako;component/Assets/Items/{id}.png", UriKind.Absolute));
         image.Freeze();
         Cache[id] = image;
         return image;

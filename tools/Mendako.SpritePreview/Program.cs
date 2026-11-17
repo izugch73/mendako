@@ -12,11 +12,17 @@ namespace Mendako.SpritePreview;
 internal static class Program
 {
     private const string Usage =
-        "使い方: Mendako.SpritePreview <出力.png> [--sheet frames|motion|accessories|accessories-visual] [--stage Egg|Hatchling|Juvenile|Adult|Elder] [--zoom N] [--section 番号,...]";
+        "使い方: Mendako.SpritePreview <出力.png> [--sheet frames|motion|accessories|accessories-visual] [--stage Egg|Hatchling|Juvenile|Adult|Elder] [--zoom N] [--section 番号,...]\n" +
+        "        Mendako.SpritePreview --site <出力フォルダ>   (遊び方ページ用の画像一式)";
 
     [STAThread]
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--site")
+        {
+            return SiteImages.Run(args[1]);
+        }
+
         if (args.Length == 0 || args[0].StartsWith("--", StringComparison.Ordinal))
         {
             Console.Error.WriteLine(Usage);
