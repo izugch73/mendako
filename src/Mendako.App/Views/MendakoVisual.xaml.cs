@@ -16,7 +16,7 @@ namespace Mendako.App.Views;
 public partial class MendakoVisual : UserControl
 {
     /// <summary>スプライトの足元を置く Y 座標。ここを固定するとタスクバーへの接地が段階によらず揃う。</summary>
-    private const double FootY = 168d;
+    internal const double FootY = 168d;
 
     private IReadOnlyList<string> _currentRows = Array.Empty<string>();
     private IReadOnlyList<string> _accessoryRows = Array.Empty<string>();
@@ -34,6 +34,12 @@ public partial class MendakoVisual : UserControl
 
     /// <summary>いま描いているスプライトの中心（このコントロールの座標系）。視線の基準に使う。</summary>
     public Point SpriteCentre { get; private set; }
+
+    /// <summary>
+    /// 跳ねたり揺れたりしていないときのスプライトの中心。居場所の目印に使う。
+    /// <see cref="SpriteCentre"/> は動きに合わせて揺れるので、距離を測る基準にすると近寄るときに目標がぶれる。
+    /// </summary>
+    public Point RestCentre { get; private set; }
 
     /// <summary>1 フレーム分の見た目を反映する。</summary>
     public void Apply(PetPose pose, MendakoState state)
@@ -54,6 +60,7 @@ public partial class MendakoVisual : UserControl
         _spriteLeft = Math.Round((Width - spriteWidth) / 2d) + drift;
         _spriteTop = FootY - spriteHeight + bob;
         SpriteCentre = new Point(_spriteLeft + (spriteWidth / 2d), _spriteTop + (spriteHeight / 2d));
+        RestCentre = new Point(Width / 2d, FootY - (spriteHeight / 2d));
 
         BodyImage.Source = frame.Bitmap;
         BodyImage.Width = spriteWidth;

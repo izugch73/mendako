@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Interop;
@@ -9,6 +11,7 @@ using Mendako.App.Services;
 using Mendako.App.Sprites;
 using Mendako.Core.Behavior;
 using Mendako.Core.Model;
+using Mendako.Core.Simulation;
 using Mendako.Platform;
 using Microsoft.Win32;
 
@@ -37,6 +40,12 @@ public partial class PetWindow : Window
 
     private const double FallAcceleration = 420d;
 
+    /// <summary>置くアイテムを、メンダコの中心からこれだけ離す (DIP)。体の半分より外で、泳いで寄るのが見える距離。</summary>
+    private const double ScatterPlaceDistance = 190d;
+
+    /// <summary>置いたアイテム同士の中心の間隔の下限 (DIP)。アイテムの幅より広く取って、重ならないようにする。</summary>
+    private const double ScatterMinGap = 60d;
+
     private static readonly TimeSpan ActiveFrameInterval = TimeSpan.FromMilliseconds(33);
 
     /// <summary>就寝中など動きが乏しいときのフレーム間隔。常駐アプリなので回しっぱなしにしない。</summary>
@@ -49,12 +58,16 @@ public partial class PetWindow : Window
     private readonly DispatcherTimer _frameTimer;
     private readonly DispatcherTimer _layoutTimer;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private readonly ScatterLayer _scatter;
 
     private IntPtr _hwnd;
     private DpiScale _dpi = new(1d, 1d);
     private MendakoState _state = MendakoState.CreateNew(DateTimeOffset.UtcNow);
     private AppSettings _settings = new();
     private Rail _rail = new(true, 0, 0, 0);
+    private ScatterRail _scatterRail = new(true, 0, 0, 0);
+    private TaskbarInfo? _taskbar;
+    private IReadOnlyList<ScatteredItem> _shownScattered = Array.Empty<ScatteredItem>();
 
     private double _lastFrameSeconds;
     private bool _clickThrough = true;
@@ -83,6 +96,9 @@ public partial class PetWindow : Window
 
         _layoutTimer = new DispatcherTimer(DispatcherPriority.Background) { Interval = LayoutInterval };
         _layoutTimer.Tick += OnLayoutTick;
+
+        _scatter = new ScatterLayer(ComputeScatterRail, () => _settings.MonitorId);
+        _scatter.PickUpRequested += (_, id) => ScatterPickUpRequested?.Invoke(this, id);
     }
 
     public event EventHandler? FeedRequested;
@@ -97,6 +113,12 @@ public partial class PetWindow : Window
     public event EventHandler? ExitRequested;
 
     public event EventHandler? InventoryRequested;
+
+    /// <summary>メンダコが置いてあるアイテムのそばに着いた。どう反応するかは受け取った側が決める。</summary>
+    public event EventHandler<Guid>? ScatterArrived;
+
+    /// <summary>置いてあるアイテムがクリックされた。</summary>
+    public event EventHandler<Guid>? ScatterPickUpRequested;
 
     public event EventHandler? ShopRequested;
 
@@ -135,6 +157,19 @@ public partial class PetWindow : Window
         Visual.Accessory = _state.EquippedAccessory;
 
         RefreshStatusCard();
+        SyncScattered();
+    }
+
+    /// <summary>置いてあるアイテムの窓を状態に合わせる。ハンドルができる前は、OnSourceInitialized が初回を受け持つ。</summary>
+    private void SyncScattered()
+    {
+        if (_hwnd == IntPtr.Zero || _state.ScatteredItems.SequenceEqual(_shownScattered))
+        {
+            return;
+        }
+
+        _shownScattered = _state.ScatteredItems.ToArray();
+        _scatter.Sync(_shownScattered);
     }
 
     /// <summary>一時的なリアクションを再生する。</summary>
@@ -155,6 +190,7 @@ public partial class PetWindow : Window
 
         _dpi = VisualTreeHelper.GetDpi(this);
         UpdatePosition();
+        SyncScattered();
 
         SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
 
@@ -168,6 +204,7 @@ public partial class PetWindow : Window
         SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         _frameTimer.Stop();
         _layoutTimer.Stop();
+        _scatter.CloseAll();
         base.OnClosed(e);
     }
 
@@ -186,6 +223,7 @@ public partial class PetWindow : Window
         // モニタの抜き差しや解像度変更でタスクバーの位置が変わる
         _dpi = VisualTreeHelper.GetDpi(this);
         UpdatePosition();
+        _scatter.Relayout();
     }
 
     // --- 位置決め ---
@@ -225,16 +263,20 @@ public partial class PetWindow : Window
     private (int X, int Y) ComputeHome()
     {
         var (width, height) = WindowPixelSize;
-        _rail = ComputeRail(TaskbarLocator.Locate(_settings.MonitorId), width, height);
+        _taskbar = TaskbarLocator.Locate(_settings.MonitorId);
+        _rail = ComputeRail(_taskbar, width, height);
+        _scatterRail = ComputeScatterRail(_taskbar, _dpi);
 
         var along = _rail.Start + (int)Math.Round(_settings.PositionRatio * _rail.Span(_rail.Horizontal ? width : height));
         return _rail.Horizontal ? (along, _rail.Cross) : (_rail.Cross, along);
     }
 
-    private Rail ComputeRail(TaskbarInfo? taskbar, int width, int height)
+    private Rail ComputeRail(TaskbarInfo? taskbar, int width, int height) => ComputeRail(taskbar, width, height, _dpi);
+
+    private Rail ComputeRail(TaskbarInfo? taskbar, int width, int height, DpiScale dpi)
     {
-        var sinkX = (int)Math.Round(SinkIntoTaskbar * _dpi.DpiScaleX);
-        var sinkY = (int)Math.Round(SinkIntoTaskbar * _dpi.DpiScaleY);
+        var sinkX = (int)Math.Round(SinkIntoTaskbar * dpi.DpiScaleX);
+        var sinkY = (int)Math.Round(SinkIntoTaskbar * dpi.DpiScaleY);
 
         // 自動的に隠す設定だとタスクバーの矩形が画面外にあるので、そのモニタの作業領域の下端に立たせる
         if (taskbar is null || taskbar.IsAutoHide)
@@ -303,6 +345,11 @@ public partial class PetWindow : Window
         var pose = _behavior.Advance(delta, _state, MeasureSurroundings());
         Visual.Apply(pose, _state);
         Travel(pose.TravelDots);
+
+        if (_behavior.TakeArrival() is { } arrived)
+        {
+            ScatterArrived?.Invoke(this, arrived);
+        }
         StepFall(delta);
 
         UpdateHitTargeting();
@@ -341,7 +388,76 @@ public partial class PetWindow : Window
             RoomBeforeDots = (position - _rail.Start) / DotPixels,
             RoomAfterDots = (end - position) / DotPixels,
             VerticalRail = !_rail.Horizontal,
+            Scattered = _scatter.Measure(
+                _taskbar,
+                _scatterRail,
+                position + RestCentrePixels,
+                DotPixels),
         };
+    }
+
+    /// <summary>
+    /// 窓の端から、体の中心までの距離 (物理ピクセル、足場に沿った向き)。
+    /// 揺れや跳ねを含まない位置なので、アイテムまでの距離を安定して測れる。
+    /// </summary>
+    private double RestCentrePixels
+    {
+        get
+        {
+            var centre = Visual.TranslatePoint(Visual.RestCentre, RootGrid);
+            return _rail.Horizontal ? centre.X * _dpi.DpiScaleX : centre.Y * _dpi.DpiScaleY;
+        }
+    }
+
+    /// <summary>
+    /// アイテムを置く足場。メンダコの足場と同じ計算で、足元の高さ (縦置きなら体の中心の X) を合わせる。
+    /// 倍率を引数にするのは、別のモニタに置いたアイテムがそのモニタの倍率で決めるため。
+    /// </summary>
+    private ScatterRail ComputeScatterRail(TaskbarInfo? taskbar, DpiScale dpi)
+    {
+        var width = (int)Math.Round(Width * dpi.DpiScaleX);
+        var height = (int)Math.Round(Height * dpi.DpiScaleY);
+        var rail = ComputeRail(taskbar, width, height, dpi);
+
+        if (rail.Horizontal)
+        {
+            var footLine = Height - Visual.Height + MendakoVisual.FootY;
+            return new ScatterRail(true, rail.Start, rail.End, rail.Cross + (int)Math.Round(footLine * dpi.DpiScaleY));
+        }
+
+        return new ScatterRail(false, rail.Start, rail.End, rail.Cross + (int)Math.Round(Width / 2d * dpi.DpiScaleX));
+    }
+
+    /// <summary>
+    /// アイテムを置く場所を決める。メンダコから少し離れた左右どちらかで、置いてあるものと重ならない所。
+    /// メンダコが泳いで行ける範囲に収めるので、置いたのに寄ってこない場所にはならない。
+    /// </summary>
+    public ScatterSpot? ChooseScatterSpot()
+    {
+        if (_hwnd == IntPtr.Zero || OverlayWindow.GetBounds(_hwnd) is not { } bounds)
+        {
+            return null;
+        }
+
+        var taskbar = TaskbarLocator.Locate(_settings.MonitorId);
+        var rail = ComputeScatterRail(taskbar, _dpi);
+        var scale = rail.Horizontal ? _dpi.DpiScaleX : _dpi.DpiScaleY;
+
+        var centreOffset = RestCentrePixels;
+        var windowLength = rail.Horizontal ? bounds.Width : bounds.Height;
+        var petCentre = (rail.Horizontal ? bounds.Left : bounds.Top) + centreOffset;
+
+        var centre = Scattering.ChoosePosition(
+            petCentre,
+            rail.Start + centreOffset,
+            rail.End - (windowLength - centreOffset),
+            _scatter.CentresOn(taskbar, rail),
+            ScatterPlaceDistance * scale,
+            ScatterMinGap * scale,
+            Random.Shared);
+
+        var monitorId = taskbar is null || taskbar.IsPrimary ? null : taskbar.MonitorId;
+        return new ScatterSpot(monitorId, Math.Clamp((centre - rail.Start) / rail.Length, 0d, 1d));
     }
 
     /// <summary>
@@ -350,7 +466,7 @@ public partial class PetWindow : Window
     /// </summary>
     private void Travel(double dots)
     {
-        if (_traveled && _behavior.CurrentAction != PetAction.Swim)
+        if (_traveled && _behavior.CurrentAction is not (PetAction.Swim or PetAction.Approach))
         {
             _traveled = false;
             _travelRemainder = 0d;
@@ -409,13 +525,12 @@ public partial class PetWindow : Window
     /// </summary>
     private void UpdateHitTargeting()
     {
-        if (_dragging)
-        {
-            return;
-        }
-
         var cursor = Pointer.TryGetPosition();
-        if (cursor is null)
+
+        // 置いたアイテムのクリック判定もここで一緒に回す。メンダコをつまんでいる間は受けない
+        _scatter.UpdateHitTargeting(cursor, !_dragging);
+
+        if (_dragging || cursor is null)
         {
             return;
         }
@@ -473,6 +588,10 @@ public partial class PetWindow : Window
         // タスクバー自身も TOPMOST なので、放っておくと順序が入れ替わることがある
         OverlayWindow.EnsureTopmost(_hwnd);
         UpdatePosition();
+        _scatter.Relayout();
+
+        // メンダコの窓を貼り直したあとに貼ると、アイテムが手前に来る。逆だと、近寄ったときに体がアイテムを隠す
+        _scatter.EnsureTopmost();
         UpdatePresenceVisibility();
     }
 
@@ -486,6 +605,7 @@ public partial class PetWindow : Window
         }
 
         _hiddenForPresence = shouldHide;
+        _scatter.SetHidden(shouldHide);
 
         if (shouldHide)
         {

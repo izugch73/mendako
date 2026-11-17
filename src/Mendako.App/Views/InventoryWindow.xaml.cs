@@ -19,13 +19,16 @@ namespace Mendako.App.Views;
 public partial class InventoryWindow : Window
 {
     private readonly MendakoSession _session;
+    private readonly Func<ScatterSpot?> _chooseSpot;
 
     /// <summary>いま一覧に出している持ち物。同じ並びなら一覧を作り直さない。</summary>
     private IReadOnlyList<ItemId> _shownItems = Array.Empty<ItemId>();
 
-    public InventoryWindow(MendakoSession session)
+    /// <param name="chooseSpot">アイテムを置く場所を決める。メンダコの居場所を知っている本体の窓が答える。</param>
+    public InventoryWindow(MendakoSession session, Func<ScatterSpot?> chooseSpot)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _chooseSpot = chooseSpot ?? throw new ArgumentNullException(nameof(chooseSpot));
 
         InitializeComponent();
 
@@ -59,6 +62,11 @@ public partial class InventoryWindow : Window
         CountText.Text = state.Items.Count >= max
             ? $"{state.Items.Count} / {max} こ (いっぱい)"
             : $"{state.Items.Count} / {max} こ";
+
+        if (state.ScatteredItems.Count > 0)
+        {
+            CountText.Text += $"　タスクバーに {state.ScatteredItems.Count} / {_session.MaxScatteredItems} こ";
+        }
 
         // 状態は 1 分ごとに変わるが、持ち物はほとんど変わらない。
         // そのたびに作り直すと、選んでいる行とスクロール位置が失われる
@@ -135,6 +143,34 @@ public partial class InventoryWindow : Window
         MessageText.Text = outcome.Result switch
         {
             SellResult.Sold => $"{row.Name} を うって {outcome.ShellsGained} かいがら もらった",
+            _ => $"{row.Name} は もう もっていなかった",
+        };
+    }
+
+    private void OnScatterClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ItemRow row })
+        {
+            return;
+        }
+
+        if (_session.State.ScatteredItems.Count >= _session.MaxScatteredItems)
+        {
+            MessageText.Text = $"タスクバーには {_session.MaxScatteredItems} こまで。おいてあるものを クリックすると もどせるよ";
+            return;
+        }
+
+        if (_chooseSpot() is not { } spot)
+        {
+            MessageText.Text = "いまは タスクバーに おけなかった";
+            return;
+        }
+
+        var outcome = _session.Scatter(row.Id, spot.Position, spot.MonitorId);
+        MessageText.Text = outcome.Result switch
+        {
+            ScatterResult.Placed => $"{row.Name} を タスクバーに おいた",
+            ScatterResult.TooMany => $"タスクバーには {_session.MaxScatteredItems} こまで。おいてあるものを クリックすると もどせるよ",
             _ => $"{row.Name} は もう もっていなかった",
         };
     }

@@ -20,4 +20,15 @@ public readonly record struct BehaviorInput
 
     /// <summary>タスクバーが縦置きか。進行方向に目を向けるかどうかの判断に使う。</summary>
     public bool VerticalRail { get; init; }
+
+    /// <summary>
+    /// 同じ足場に置いてあるアイテム。置いていなければ null。
+    /// 別のモニタの足場にあるものは含めない (泳いでいけないので)。
+    /// </summary>
+    public IReadOnlyList<ScatterTarget>? Scattered { get; init; }
 }
+
+/// <summary>メンダコから見た、置いてあるアイテム 1 個の位置。</summary>
+/// <param name="Id">置いたアイテムの識別子 (<see cref="Model.ScatteredItem.Id"/>)。</param>
+/// <param name="OffsetDots">メンダコの中心からアイテムの中心までの距離（ドット単位、終端側が正）。</param>
+public readonly record struct ScatterTarget(Guid Id, double OffsetDots);

@@ -1,0 +1,29 @@
+<Window x:Class="Mendako.App.Views.ScatterItemWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mendako item"
+        Width="36"
+        Height="36"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="{x:Null}"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        Cursor="Hand">
+
+    <!--
+        置いたアイテム 1 個ぶんの小さなオーバーレイ。PetWindow と同じく Background は {x:Null} にする。
+        Transparent にすると透明な角までクリックを吸ってしまう。
+        クリックを受けるかどうかは ScatterLayer が絵のあるドットの上かどうかで切り替える。
+    -->
+
+    <Image x:Name="ItemImage"
+           Stretch="Fill"
+           RenderOptions.BitmapScalingMode="NearestNeighbor"
+           RenderOptions.EdgeMode="Aliased" />
+</Window>

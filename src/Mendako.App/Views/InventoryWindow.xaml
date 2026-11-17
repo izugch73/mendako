@@ -63,6 +63,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Image Source="{Binding Icon}" Width="40" Height="40" Margin="0,0,10,0" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -76,7 +77,17 @@
                                            VerticalAlignment="Center"
                                            Foreground="{StaticResource CardMuted}" />
                             </StackPanel>
-                            <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <!-- 行ごとに置ける。選んでから下のボタンを押す手間を省く -->
+                            <Button Grid.Column="2"
+                                    Content="おく"
+                                    Padding="12,4"
+                                    MinWidth="44"
+                                    FontSize="11"
+                                    Margin="8,0,14,0"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource MendakoButton}"
+                                    Click="OnScatterClick" />
+                            <StackPanel Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Right">
                                 <TextBlock Text="うれるかいがら"
                                            FontSize="9"
                                            HorizontalAlignment="Right"

@@ -61,6 +61,9 @@ public sealed class MendakoSession : IDisposable
     /// <summary>持ち物の上限。</summary>
     public int MaxInventoryItems => _config.MaxInventoryItems;
 
+    /// <summary>タスクバーに同時に置ける数。</summary>
+    public int MaxScatteredItems => _config.MaxScatteredItems;
+
     /// <summary>飾りの値段。売っていなければ null。</summary>
     public int? PriceOf(Accessory accessory) => Shop.PriceOf(accessory, _config);
 
@@ -117,6 +120,52 @@ public sealed class MendakoSession : IDisposable
         }
 
         return outcome;
+    }
+
+    /// <summary>持ち物のアイテムを 1 個、タスクバーの指定の場所に置く。</summary>
+    public ScatterOutcome Scatter(ItemId item, double position, string? monitorId)
+    {
+        // 置く直前までに拾った分を先に取り込む。持ち物の画面と実際の持ち物がずれたまま置かないため
+        Advance();
+
+        var outcome = Scattering.Place(State, item, position, monitorId, _config);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome;
+    }
+
+    /// <summary>置いてあるアイテムを持ち物に戻す。持ち物がいっぱいなら戻せない。</summary>
+    public ScatterOutcome PickUp(Guid id)
+    {
+        Advance();
+
+        var outcome = Scattering.PickUp(State, id, _config);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome;
+    }
+
+    /// <summary>メンダコが置いてあるアイテムのそばに着いた。分類に応じた反応を状態に反映して返す。</summary>
+    public ScatterReaction ReactToScattered(Guid id)
+    {
+        Advance();
+
+        var outcome = Scattering.React(State, id, _clock.UtcNow, _config);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome.Reaction;
     }
 
     /// <summary>飾りを買う。買っただけでは付けない。</summary>

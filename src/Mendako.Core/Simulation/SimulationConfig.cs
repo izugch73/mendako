@@ -112,6 +112,11 @@ public sealed record SimulationConfig
     /// <summary>「まれに拾う」アイテム 1 種類あたりの抽選の重み。</summary>
     public double RareForageWeight { get; init; } = 0.5d;
 
+    // --- 置く ---
+
+    /// <summary>タスクバーに同時に置ける数。</summary>
+    public int MaxScatteredItems { get; init; } = 3;
+
     // --- おみせ ---
 
     /// <summary>飾りの値段 (かいがら)。ここに無い飾りは売っていない。</summary>

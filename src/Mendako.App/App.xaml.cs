@@ -81,6 +81,8 @@ public partial class App : Application
         window.HideOnFullScreenChanged += OnHideOnFullScreenChanged;
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
         window.InventoryRequested += (_, _) => ShowInventory();
+        window.ScatterArrived += (_, id) => OnScatterArrived(id);
+        window.ScatterPickUpRequested += (_, id) => OnScatterPickUpRequested(id);
         window.ShopRequested += (_, _) => ShowShop();
         window.ExitRequested += (_, _) => Shutdown();
         window.PlacementChanged += OnPlacementChanged;
@@ -243,6 +245,45 @@ public partial class App : Application
         return $"{list} を拾ってきた (ぜんぶで {items.Count} こ)";
     }
 
+    // --- 置いたアイテム ---
+
+    /// <summary>メンダコが置いたアイテムに着いた。分類に応じて食べる・喜ぶ・つつく。</summary>
+    private void OnScatterArrived(Guid id)
+    {
+        if (_session is null || _window is null)
+        {
+            return;
+        }
+
+        var action = _session.ReactToScattered(id) switch
+        {
+            ScatterReaction.Ate => PetAction.Eat,
+            ScatterReaction.RefusedTooFull => PetAction.Refuse,
+            ScatterReaction.Delighted => PetAction.Happy,
+            ScatterReaction.Admired => PetAction.Admire,
+            ScatterReaction.Poked => PetAction.Poke,
+            _ => PetAction.None,
+        };
+
+        if (action != PetAction.None)
+        {
+            _window.React(action);
+        }
+    }
+
+    private void OnScatterPickUpRequested(Guid id)
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        if (_session.PickUp(id).Result == ScatterResult.InventoryFull)
+        {
+            _tray?.ShowBalloon("もちものが いっぱい", "もちものが いっぱいで もどせない。「もちもの」で うってから、もういちど さわってね");
+        }
+    }
+
     private void OnPlacementChanged(object? sender, PetPlacement placement)
     {
         _settings = _settings with { MonitorId = placement.MonitorId, PositionRatio = placement.Ratio };
@@ -283,7 +324,7 @@ public partial class App : Application
         // 二重に開くと、売った結果が片方の窓にしか映らない時間ができて紛らわしい
         if (_inventoryWindow is null)
         {
-            var window = new InventoryWindow(_session);
+            var window = new InventoryWindow(_session, () => _window?.ChooseScatterSpot());
             window.Closed += (_, _) => _inventoryWindow = null;
             _inventoryWindow = window;
             window.Show();

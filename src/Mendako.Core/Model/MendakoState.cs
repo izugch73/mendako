@@ -67,6 +67,9 @@ public sealed record MendakoState
     /// <summary>付けている飾り。持っている飾りの中から選ぶ。</summary>
     public Accessory EquippedAccessory { get; init; } = Accessory.None;
 
+    /// <summary>タスクバーに置いてあるアイテム。新しい項目なので、無い保存データは空として読む。</summary>
+    public IReadOnlyList<ScatteredItem> ScatteredItems { get; init; } = Array.Empty<ScatteredItem>();
+
     [JsonIgnore]
     public GrowthStage Stage => GrowthStages.FromGrowth(Growth);
 

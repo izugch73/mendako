@@ -22,7 +22,35 @@ public sealed class BehaviorMachine
     /// <summary>これより狭い側には泳ぎ出さない。</summary>
     private const double MinSwimRoomDots = 6d;
 
+    /// <summary>
+    /// 置いてあるアイテムに一度反応したら、同じアイテムへ近寄らない秒数。
+    /// 片付けて置き直すと別のアイテムとして数えるので、その間も遊ばせたいときは置き直せばよい。
+    /// </summary>
+    public const double ScatterCooldownSeconds = 600d;
+
+    /// <summary>これより遠いアイテムには気付かない。画面の端のものまで追いかけると落ち着きがない。</summary>
+    private const double ScatterNoticeDots = 150d;
+
+    /// <summary>気付いてから泳ぎ出すまでの間。そのあいだ目だけアイテムを追う。</summary>
+    private const double ScatterNoticeDelaySeconds = 1d;
+
+    /// <summary>
+    /// アイテムの中心までこの距離に来たら着いたことにする。
+    /// 体の幅の半分（10 ドット）より少し外で止まるので、アイテムを踏まずに横から覗き込む形になる。
+    /// </summary>
+    private const double ScatterArriveDots = 11d;
+
+    /// <summary>アイテムへ向かうときの速さの上限（ドット / 秒）。ぶらぶら泳ぐ <see cref="SwimSpeed"/> よりも急ぐ。</summary>
+    private const double ApproachSpeed = 10d;
+
+    /// <summary>着けなかったときに諦めるまでの秒数。</summary>
+    private const double ApproachTimeoutSeconds = 45d;
+
+    /// <summary>つつく動きの長さ。これが終わるとびっくりに替わる。</summary>
+    private const double PokeSeconds = 0.8d;
+
     private readonly Random _random;
+    private readonly Dictionary<Guid, double> _scatterCooldownUntil = new();
 
     private double _time;
     private double _nextBlinkAt;
@@ -33,6 +61,16 @@ public sealed class BehaviorMachine
 
     /// <summary>泳ぐ向き。0 は未定で、泳ぎ出しのフレームで余地を見て決める。</summary>
     private int _swimDirection;
+
+    private Guid _approachTarget;
+    private Guid _noticedTarget;
+    private double _noticedSince;
+    private int _noticeGaze;
+
+    /// <summary>最後に近寄ったときの向き。つつくときにそちらへ体を出す。</summary>
+    private int _facing = 1;
+
+    private Guid? _arrival;
 
     public BehaviorMachine(int? seed = null)
     {
@@ -72,6 +110,17 @@ public sealed class BehaviorMachine
     }
 
     /// <summary>
+    /// 置いてあるアイテムのそばに着いたら、そのアイテムの識別子を一度だけ返す。
+    /// 反応（食べる・喜ぶ）は育成状態に関わるので、どう反応するかは呼び出し側が決めて <see cref="Trigger"/> する。
+    /// </summary>
+    public Guid? TakeArrival()
+    {
+        var arrival = _arrival;
+        _arrival = null;
+        return arrival;
+    }
+
+    /// <summary>
     /// 実行中の動きを切り上げる。別の動きに替わっていれば何もしない。
     /// つかまれている・落ちている、のように終わりを外から決める動きに使う。
     /// </summary>
@@ -94,11 +143,23 @@ public sealed class BehaviorMachine
 
         if (CurrentAction != PetAction.None && _time >= _actionEndsAt)
         {
+            var finished = CurrentAction;
             CurrentAction = PetAction.None;
+
+            if (finished == PetAction.Poke && !state.IsAsleep)
+            {
+                Trigger(PetAction.Startle);
+            }
         }
 
         // カーソルを乗せたら立ち止まる。泳いで逃げられるとクリックできない
-        if (CurrentAction == PetAction.Swim && input.Hovering)
+        if (CurrentAction is PetAction.Swim or PetAction.Approach && input.Hovering)
+        {
+            CurrentAction = PetAction.None;
+        }
+
+        // 眠ったら近寄るのをやめる。起きたあとはまた気付けば近寄る
+        if (CurrentAction == PetAction.Approach && state.IsAsleep)
         {
             CurrentAction = PetAction.None;
         }
@@ -108,7 +169,7 @@ public sealed class BehaviorMachine
             return SleepingPose();
         }
 
-        if (CurrentAction == PetAction.None)
+        if (CurrentAction == PetAction.None && !TryNoticeScattered(state, input))
         {
             StartGestureIfDue(state, input);
         }
@@ -120,6 +181,8 @@ public sealed class BehaviorMachine
             PetAction.Refuse => RefusingPose(),
             PetAction.Evolve => EvolvingPose(),
             PetAction.Startle => StartledPose(),
+            PetAction.Admire => AdmiringPose(),
+            PetAction.Poke => PokingPose(),
             PetAction.Held => HeldPose(),
             PetAction.Fall => FallingPose(),
             PetAction.Land => LandingPose(),
@@ -129,7 +192,8 @@ public sealed class BehaviorMachine
             PetAction.Flatten => FlattenedPose(),
             PetAction.Wobble => WobblingPose(state.Mood),
             PetAction.Swim => SwimmingPose(delta, input),
-            _ => IdlePose(state.Mood) with { GazeDots = GazeToward(input) },
+            PetAction.Approach => ApproachingPose(delta, state, input),
+            _ => IdlePose(state.Mood) with { GazeDots = _noticeGaze != 0 ? _noticeGaze : GazeToward(input) },
         };
 
         // 目を開けているコマにだけまばたきを載せる。閉じ目やにっこりは動き側が決めたもの
@@ -240,6 +304,30 @@ public sealed class BehaviorMachine
 
         // ぴょんと跳ねて、すぐ降りる
         BobDots = -Math.Sin(Math.Min(1d, Elapsed / 0.3d) * Math.PI) * 3d,
+    };
+
+    private PetPose AdmiringPose()
+    {
+        // 目を丸くして見とれ、そのあとにっこりする
+        const double StareSeconds = 0.7d;
+        var staring = Elapsed < StareSeconds;
+
+        return new PetPose
+        {
+            Fin = Math.Sin(Elapsed * 7d) > 0d ? FinPose.Up : FinPose.Mid,
+            Eyes = staring ? EyePose.Surprised : EyePose.Happy,
+            BobDots = -Math.Abs(Math.Sin(Elapsed * 3.5d)) * 1.5d,
+            ShowHeart = !staring,
+        };
+    }
+
+    private PetPose PokingPose() => new()
+    {
+        // アイテムのほうへ 2 回、体を突き出す
+        Fin = FinPose.Up,
+        Eyes = EyePose.Open,
+        GazeDots = _facing,
+        DriftDots = _facing * Math.Abs(Math.Sin(Elapsed / PokeSeconds * Math.PI * 2d)) * 2d,
     };
 
     // --- つまみ上げ ---
@@ -420,6 +508,160 @@ public sealed class BehaviorMachine
         return _random.NextDouble() * (before + after) < after ? 1 : -1;
     }
 
+    // --- 置いてあるアイテム ---
+
+    /// <summary>
+    /// 近くにアイテムがあれば気付いて、少し見てから泳ぎ出す。気付いている間は true を返し、
+    /// 待機やしぐさに戻らせない (見ている最中に伸びをすると、気付いていないように見える)。
+    /// </summary>
+    private bool TryNoticeScattered(MendakoState state, BehaviorInput input)
+    {
+        _noticeGaze = 0;
+
+        if (state.IsAsleep || state.Stage == GrowthStage.Egg || input.Hovering)
+        {
+            _noticedTarget = Guid.Empty;
+            return false;
+        }
+
+        if (PickScatterTarget(input) is not { } target)
+        {
+            _noticedTarget = Guid.Empty;
+            return false;
+        }
+
+        if (target.Id != _noticedTarget)
+        {
+            _noticedTarget = target.Id;
+            _noticedSince = _time;
+        }
+
+        if (!input.VerticalRail)
+        {
+            _noticeGaze = Math.Sign(target.OffsetDots);
+        }
+
+        if (_time - _noticedSince >= ScatterNoticeDelaySeconds)
+        {
+            _approachTarget = target.Id;
+            Trigger(PetAction.Approach, ApproachTimeoutSeconds);
+        }
+
+        return true;
+    }
+
+    /// <summary>気付く範囲にある、クールダウン中でない一番近いアイテム。</summary>
+    private ScatterTarget? PickScatterTarget(BehaviorInput input)
+    {
+        if (input.Scattered is not { Count: > 0 } scattered)
+        {
+            return null;
+        }
+
+        ScatterTarget? nearest = null;
+        foreach (var candidate in scattered)
+        {
+            var distance = Math.Abs(candidate.OffsetDots);
+            if (distance > ScatterNoticeDots
+                || (_scatterCooldownUntil.TryGetValue(candidate.Id, out var until) && _time < until))
+            {
+                continue;
+            }
+
+            if (nearest is null || distance < Math.Abs(nearest.Value.OffsetDots))
+            {
+                nearest = candidate;
+            }
+        }
+
+        return nearest;
+    }
+
+    private PetPose ApproachingPose(double delta, MendakoState state, BehaviorInput input)
+    {
+        ScatterTarget? found = null;
+        if (input.Scattered is { } scattered)
+        {
+            foreach (var candidate in scattered)
+            {
+                if (candidate.Id == _approachTarget)
+                {
+                    found = candidate;
+                }
+            }
+        }
+
+        var idle = IdlePose(state.Mood);
+
+        // 向かっている途中で片付けられた
+        if (found is not { } target)
+        {
+            EndApproach();
+            return idle;
+        }
+
+        var direction = target.OffsetDots < 0d ? -1 : 1;
+        var distance = Math.Abs(target.OffsetDots);
+
+        if (distance <= ScatterArriveDots)
+        {
+            // 着いたら反応を渡して立ち止まる。同じアイテムへすぐ戻ってこないよう、反応の結果によらず休ませる
+            _arrival = target.Id;
+            _facing = direction;
+            _scatterCooldownUntil[target.Id] = _time + ScatterCooldownSeconds;
+            PruneCooldowns();
+            EndApproach();
+            return idle with { GazeDots = input.VerticalRail ? 0 : direction };
+        }
+
+        var room = direction > 0 ? input.RoomAfterDots : input.RoomBeforeDots;
+        if (room <= 0d)
+        {
+            // 足場の端で体が届かない場所にある。粘ってもその場で止まるだけなので、休ませて諦める
+            _scatterCooldownUntil[target.Id] = _time + ScatterCooldownSeconds;
+            EndApproach();
+            return idle;
+        }
+
+        _facing = direction;
+
+        var stroke = Math.Abs(Math.Sin(Elapsed * 3d));
+
+        // 着く距離のわずかに手前までしか進まない。行き過ぎて戻ると、アイテムの前で行ったり来たりする
+        var travel = Math.Min(
+            Math.Min(room, distance - ScatterArriveDots + 0.5d),
+            ApproachSpeed * (0.35d + (0.65d * stroke)) * delta);
+
+        return new PetPose
+        {
+            Fin = Math.Sin(Elapsed * 10d) > 0d ? FinPose.Up : FinPose.Mid,
+            Eyes = EyePose.Open,
+            GazeDots = input.VerticalRail ? 0 : direction,
+            BobDots = -stroke * 2d,
+            TravelDots = travel * direction,
+        };
+    }
+
+    private void EndApproach()
+    {
+        CurrentAction = PetAction.None;
+        _actionEndsAt = _time;
+        _noticedTarget = Guid.Empty;
+    }
+
+    private void PruneCooldowns()
+    {
+        if (_scatterCooldownUntil.Count < 16)
+        {
+            return;
+        }
+
+        foreach (var expired in _scatterCooldownUntil.Where(pair => pair.Value <= _time).Select(pair => pair.Key).ToList())
+        {
+            _scatterCooldownUntil.Remove(expired);
+        }
+    }
+
     private double NextGestureInterval() => 8d + (_random.NextDouble() * 14d);
 
     // --- まばたき ---
@@ -455,6 +697,7 @@ public sealed class BehaviorMachine
     {
         PetAction.None => 0,
         PetAction.Eat or PetAction.Happy or PetAction.Refuse or PetAction.Startle => 2,
+        PetAction.Admire or PetAction.Poke => 2,
         PetAction.Held or PetAction.Fall or PetAction.Land => 2,
         PetAction.Evolve => 3,
         _ => 1,
@@ -467,6 +710,8 @@ public sealed class BehaviorMachine
         PetAction.Refuse => 0.9d,
         PetAction.Evolve => 2.6d,
         PetAction.Startle => 0.6d,
+        PetAction.Admire => 1.8d,
+        PetAction.Poke => PokeSeconds,
         PetAction.Held => double.PositiveInfinity,
         PetAction.Fall => double.PositiveInfinity,
         PetAction.Land => 0.35d,
@@ -476,6 +721,7 @@ public sealed class BehaviorMachine
         PetAction.Flatten => 3.0d,
         PetAction.Wobble => 0.8d,
         PetAction.Swim => 5.0d,
+        PetAction.Approach => ApproachTimeoutSeconds,
         _ => 0d,
     };
 }
