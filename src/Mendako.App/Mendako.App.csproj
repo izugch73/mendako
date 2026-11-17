@@ -23,6 +23,12 @@
     <NoWarn>$(NoWarn);WFAC010</NoWarn>
   </PropertyGroup>
 
+  <!-- アイテムのアイコン。Resource にすると単一ファイル発行でも exe の中から読める。
+       Content にすると exe の隣に別ファイルが散らばる -->
+  <ItemGroup>
+    <Resource Include="Assets\Items\*.png" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Mendako.Core\Mendako.Core.csproj" />
     <ProjectReference Include="..\Mendako.Platform\Mendako.Platform.csproj" />

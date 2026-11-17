@@ -22,18 +22,16 @@
         WPF のヒットテスト対象になり、メンダコの周りでクリックが吸われてしまう。
     -->
 
-    <Window.Resources>
-        <SolidColorBrush x:Key="CardBackground" Color="#F0232028" />
-        <SolidColorBrush x:Key="CardForeground" Color="#FFF4EDEF" />
-        <SolidColorBrush x:Key="CardMuted" Color="#FFAFA2A8" />
-        <SolidColorBrush x:Key="TrackBrush" Color="#FF463C43" />
-    </Window.Resources>
+    <!-- カードの配色は Theme.xaml にある。もちもの・おみせの窓と揃えるため -->
 
     <Window.ContextMenu>
         <ContextMenu x:Name="PetContextMenu">
             <MenuItem x:Name="FeedMenuItem" Header="ごはんをあげる" Click="OnFeedClick" />
             <MenuItem x:Name="PetMenuItem" Header="なでる" Click="OnPetClick" />
             <MenuItem x:Name="SleepMenuItem" Header="寝かせる" Click="OnSleepToggleClick" />
+            <Separator />
+            <MenuItem Header="もちもの" Click="OnInventoryClick" />
+            <MenuItem Header="おみせ" Click="OnShopClick" />
             <Separator />
             <MenuItem x:Name="HideOnFullScreenMenuItem"
                       Header="全画面アプリ中は隠す"

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using Mendako.Core.Behavior;
@@ -23,7 +25,16 @@ public partial class App : Application
     private MendakoSession? _session;
     private TrayController? _tray;
     private PetWindow? _window;
+    private InventoryWindow? _inventoryWindow;
+    private ShopWindow? _shopWindow;
     private AppSettings _settings = new();
+
+    /// <summary>
+    /// 持ち物がいっぱいで拾えなかったことを、もう知らせたか。
+    /// 拾う機会は 3 時間ごとにあるので、いっぱいのまま放っておくと同じ通知が延々と出る。
+    /// 持ち物に空きができたら (売ったら) 戻して、次にいっぱいになったときにまた知らせる。
+    /// </summary>
+    private bool _fullNoticeShown;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -47,6 +58,7 @@ public partial class App : Application
         session.StateChanged += OnStateChanged;
         session.StageAdvanced += OnStageAdvanced;
         session.ReturnedAfterAbsence += OnReturnedAfterAbsence;
+        session.Foraged += OnForaged;
 
         var tray = new TrayController();
         _tray = tray;
@@ -54,6 +66,8 @@ public partial class App : Application
         tray.PetRequested += (_, _) => Pet();
         tray.SleepToggleRequested += (_, _) => session.ToggleSleep();
         tray.StatusRequested += (_, _) => ShowStatus();
+        tray.InventoryRequested += (_, _) => ShowInventory();
+        tray.ShopRequested += (_, _) => ShowShop();
         tray.ExitRequested += (_, _) => Shutdown();
         tray.AutoStartChanged += OnAutoStartChanged;
         tray.HideOnFullScreenChanged += OnHideOnFullScreenChanged;
@@ -66,6 +80,8 @@ public partial class App : Application
         window.PokeRequested += (_, _) => Poke();
         window.HideOnFullScreenChanged += OnHideOnFullScreenChanged;
         window.SleepToggleRequested += (_, _) => session.ToggleSleep();
+        window.InventoryRequested += (_, _) => ShowInventory();
+        window.ShopRequested += (_, _) => ShowShop();
         window.ExitRequested += (_, _) => Shutdown();
         window.PlacementChanged += OnPlacementChanged;
         window.Initialize(session.State, _settings);
@@ -156,6 +172,11 @@ public partial class App : Application
     {
         _window?.UpdateState(state);
         _tray?.UpdateState(state);
+
+        if (_session is not null && state.Items.Count < _session.MaxInventoryItems)
+        {
+            _fullNoticeShown = false;
+        }
     }
 
     private void OnStageAdvanced(object? sender, GrowthStage stage)
@@ -172,6 +193,54 @@ public partial class App : Application
         _tray?.ShowBalloon(
             "おかえりなさい",
             $"{days} 日以上ぶりですね。そのあいだの時間は打ち切ってあるので、手遅れにはなっていません。");
+    }
+
+    private void OnForaged(object? sender, ForageReport report)
+    {
+        var lines = new List<string>();
+
+        if (report.Items.Count > 0)
+        {
+            lines.Add(DescribeForaged(report.Items));
+        }
+
+        if (report.Missed > 0 && !_fullNoticeShown)
+        {
+            _fullNoticeShown = true;
+            lines.Add("もちものが いっぱいで ひろえなかった。「もちもの」で うると また ひろってくるよ");
+        }
+
+        if (lines.Count == 0)
+        {
+            return;
+        }
+
+        // 閉じていた間にまとめて拾った分も、ここで 1 回の通知にする
+        _tray?.ShowBalloon(
+            report.Items.Count > 0 ? "ひろいもの" : "もちものが いっぱい",
+            string.Join(Environment.NewLine, lines));
+    }
+
+    private static string DescribeForaged(IReadOnlyList<ItemId> items)
+    {
+        var kinds = items
+            .GroupBy(id => id)
+            .Select(group =>
+            {
+                var name = ItemCatalog.Get(group.Key).DisplayName;
+                return group.Count() > 1 ? $"{name} ×{group.Count()}" : name;
+            })
+            .ToList();
+
+        if (items.Count == 1)
+        {
+            return $"{kinds[0]} を拾ってきた";
+        }
+
+        // 長くなりすぎるとバルーンの字数に収まらない
+        const int shown = 3;
+        var list = string.Join("、", kinds.Take(shown)) + (kinds.Count > shown ? " ほか" : string.Empty);
+        return $"{list} を拾ってきた (ぜんぶで {items.Count} こ)";
     }
 
     private void OnPlacementChanged(object? sender, PetPlacement placement)
@@ -200,6 +269,55 @@ public partial class App : Application
 
         // トレイと本体の右クリックメニュー、どちらで切り替えても両方のチェックを揃える
         _tray?.InitializeToggles(AutoStart.IsEnabled(), enabled);
+    }
+
+    // --- もちもの・おみせ ---
+
+    private void ShowInventory()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        // 二重に開くと、売った結果が片方の窓にしか映らない時間ができて紛らわしい
+        if (_inventoryWindow is null)
+        {
+            var window = new InventoryWindow(_session);
+            window.Closed += (_, _) => _inventoryWindow = null;
+            _inventoryWindow = window;
+            window.Show();
+        }
+
+        BringToFront(_inventoryWindow);
+    }
+
+    private void ShowShop()
+    {
+        if (_session is null)
+        {
+            return;
+        }
+
+        if (_shopWindow is null)
+        {
+            var window = new ShopWindow(_session);
+            window.Closed += (_, _) => _shopWindow = null;
+            _shopWindow = window;
+            window.Show();
+        }
+
+        BringToFront(_shopWindow);
+    }
+
+    private static void BringToFront(Window window)
+    {
+        if (window.WindowState == WindowState.Minimized)
+        {
+            window.WindowState = WindowState.Normal;
+        }
+
+        window.Activate();
     }
 
     private void OnSessionEnding(object? sender, SessionEndingEventArgs e) => _session?.SaveNow();

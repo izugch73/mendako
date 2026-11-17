@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Windows.Threading;
 using Mendako.Core;
 using Mendako.Core.Model;
@@ -53,6 +55,15 @@ public sealed class MendakoSession : IDisposable
     /// <summary>長期間の不在から復帰したときに、打ち切られた分数とともに発火する。</summary>
     public event EventHandler<long>? ReturnedAfterAbsence;
 
+    /// <summary>アイテムを拾った、または持ち物がいっぱいで拾えなかったときに発火する。</summary>
+    public event EventHandler<ForageReport>? Foraged;
+
+    /// <summary>持ち物の上限。</summary>
+    public int MaxInventoryItems => _config.MaxInventoryItems;
+
+    /// <summary>飾りの値段。売っていなければ null。</summary>
+    public int? PriceOf(Accessory accessory) => Shop.PriceOf(accessory, _config);
+
     /// <summary>起動直後のキャッチアップを行い、タイマーを回し始める。</summary>
     public void Start()
     {
@@ -83,6 +94,57 @@ public sealed class MendakoSession : IDisposable
         {
             StageAdvanced?.Invoke(this, stage);
         }
+
+        if (outcome.Foraged.Count > 0 || outcome.ForageMissed > 0)
+        {
+            Foraged?.Invoke(
+                this,
+                new ForageReport(outcome.Foraged.Select(f => f.Item).ToArray(), outcome.ForageMissed));
+        }
+    }
+
+    /// <summary>持ち物を 1 個売る。</summary>
+    public SellOutcome Sell(ItemId item)
+    {
+        // 売る直前までに拾った分を先に取り込む。持ち物の画面と実際の持ち物がずれたまま売らないため
+        Advance();
+
+        var outcome = Inventory.Sell(State, item);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome;
+    }
+
+    /// <summary>飾りを買う。買っただけでは付けない。</summary>
+    public PurchaseOutcome Buy(Accessory accessory)
+    {
+        Advance();
+
+        var outcome = Shop.Buy(State, accessory, _config);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome;
+    }
+
+    /// <summary>持っている飾りを付ける。<see cref="Accessory.None"/> を渡すと外す。</summary>
+    public EquipOutcome Equip(Accessory accessory)
+    {
+        var outcome = Shop.Equip(State, accessory);
+        if (outcome.Changed)
+        {
+            UpdateState(outcome.State);
+            TrySaveNow();
+        }
+
+        return outcome;
     }
 
     public CareResult Feed()
@@ -119,6 +181,22 @@ public sealed class MendakoSession : IDisposable
     {
         _store.Save(State);
         _dirty = false;
+    }
+
+    /// <summary>
+    /// かいがらの増減は、取り消せない操作の結果なので即座に書き出す。
+    /// 失敗しても例外は伝えない。dirty のままなので自動保存が再試行するし、
+    /// ここで落とすと売買の画面から例外が飛び出してしまう。
+    /// </summary>
+    private void TrySaveNow()
+    {
+        try
+        {
+            SaveNow();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
     }
 
     private void Apply(CareOutcome outcome)

@@ -96,6 +96,10 @@ public partial class PetWindow : Window
 
     public event EventHandler? ExitRequested;
 
+    public event EventHandler? InventoryRequested;
+
+    public event EventHandler? ShopRequested;
+
     /// <summary>右クリックメニューで「全画面アプリ中は隠す」を切り替えた。</summary>
     public event EventHandler<bool>? HideOnFullScreenChanged;
 
@@ -125,6 +129,10 @@ public partial class PetWindow : Window
         SleepMenuItem.Header = _state.IsAsleep ? "起こす" : "寝かせる";
         FeedMenuItem.IsEnabled = !_state.IsAsleep;
         PetMenuItem.IsEnabled = !_state.IsAsleep;
+
+        // 次のフレームの Apply で反映される。起動時はフレームタイマーが回り出す前に呼ばれるので、
+        // 最初に描くコマから飾りが付いている
+        Visual.Accessory = _state.EquippedAccessory;
 
         RefreshStatusCard();
     }
@@ -694,6 +702,10 @@ public partial class PetWindow : Window
     private void OnPetClick(object sender, RoutedEventArgs e) => PetRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnSleepToggleClick(object sender, RoutedEventArgs e) => SleepToggleRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnInventoryClick(object sender, RoutedEventArgs e) => InventoryRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnShopClick(object sender, RoutedEventArgs e) => ShopRequested?.Invoke(this, EventArgs.Empty);
 
     private void OnExitClick(object sender, RoutedEventArgs e) => ExitRequested?.Invoke(this, EventArgs.Empty);
 
