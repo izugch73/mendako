@@ -140,12 +140,6 @@ public partial class InventoryWindow : Window
             return;
         }
 
-        if (_session.State.ScatteredItems.Count >= _session.MaxScatteredItems)
-        {
-            MessageText.Text = $"タスクバーには {_session.MaxScatteredItems} こまで。おいてあるものを クリックすると もどせるよ";
-            return;
-        }
-
         if (_chooseSpot() is not { } spot)
         {
             MessageText.Text = "いまは タスクバーに おけなかった";

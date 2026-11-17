@@ -20,9 +20,9 @@ public class ScatteringTests
 
     private static MendakoState WithScattered(MendakoState state, ItemId item, out Guid id)
     {
-        id = Guid.NewGuid();
-        var outcome = Scattering.Place(state, item, 0.4d, null, id: id);
+        var outcome = Scattering.Place(state, item, 0.4d, null);
         Assert.Equal(ScatterResult.Placed, outcome.Result);
+        id = outcome.Item!.Id;
         return outcome.State;
     }
 
@@ -274,8 +274,9 @@ public class ScatteringTests
     [Fact]
     public void 置いたアイテムは位置とモニタごと保存して読み戻せる()
     {
-        var id = Guid.NewGuid();
-        var state = Scattering.Place(Elder(ItemId.RedFlower), ItemId.RedFlower, 0.625d, @"\\.\DISPLAY2", id: id).State;
+        var placedOutcome = Scattering.Place(Elder(ItemId.RedFlower), ItemId.RedFlower, 0.625d, @"\\.\DISPLAY2");
+        var id = placedOutcome.Item!.Id;
+        var state = placedOutcome.State;
 
         var json = JsonSerializer.Serialize(state);
         var back = JsonSerializer.Deserialize<MendakoState>(json)!;
@@ -308,5 +309,72 @@ public class ScatteringTests
         var outcome = Simulator.Advance(state, state.LastTickUtc.AddHours(1), TimeZoneInfo.Utc, random: new Random(1));
 
         Assert.Single(outcome.State.ScatteredItems);
+    }
+
+    // --- 読み込み後の整え ---
+
+    private static ScatteredItem Scat(Guid id, double position, ItemId item = ItemId.Apple) =>
+        new() { Id = id, Item = item, Position = position };
+
+    [Fact]
+    public void 読み込み後の整えで識別子が空や重複のものを捨てる()
+    {
+        var dup = Guid.NewGuid();
+        var other = Guid.NewGuid();
+        var state = Elder() with
+        {
+            ScatteredItems = new[] { Scat(Guid.Empty, 0.1d), Scat(dup, 0.2d), Scat(dup, 0.3d, ItemId.Sword), Scat(other, 0.4d) },
+        };
+
+        var normalized = Scattering.Normalize(state, new SimulationConfig { MaxScatteredItems = 10 });
+
+        Assert.Equal(new[] { dup, other }, normalized.ScatteredItems.Select(s => s.Id));
+        Assert.Equal(ItemId.Apple, normalized.ScatteredItems[0].Item);
+    }
+
+    [Fact]
+    public void 読み込み後の整えで位置を0から1に丸める()
+    {
+        var state = Elder() with
+        {
+            ScatteredItems = new[]
+            {
+                Scat(Guid.NewGuid(), double.NaN),
+                Scat(Guid.NewGuid(), -2d),
+                Scat(Guid.NewGuid(), 9d),
+            },
+        };
+
+        var normalized = Scattering.Normalize(state, new SimulationConfig { MaxScatteredItems = 10 });
+
+        Assert.Equal(new[] { 0.5d, 0d, 1d }, normalized.ScatteredItems.Select(s => s.Position));
+    }
+
+    [Fact]
+    public void 読み込み後の整えで上限を超えた分は持ち物に戻し持ち物がいっぱいなら捨てる()
+    {
+        var config = new SimulationConfig { MaxScatteredItems = 1, MaxInventoryItems = 2 };
+        var state = Elder(ItemId.Sword) with
+        {
+            ScatteredItems = new[]
+            {
+                Scat(Guid.NewGuid(), 0.1d),
+                Scat(Guid.NewGuid(), 0.2d, ItemId.RedFlower),
+                Scat(Guid.NewGuid(), 0.3d, ItemId.Apple),
+            },
+        };
+
+        var normalized = Scattering.Normalize(state, config);
+
+        Assert.Single(normalized.ScatteredItems);
+        Assert.Equal(new[] { ItemId.Sword, ItemId.RedFlower }, normalized.Items);
+    }
+
+    [Fact]
+    public void 問題のない保存データは整えても同じインスタンスのまま()
+    {
+        var state = Elder() with { ScatteredItems = new[] { Scat(Guid.NewGuid(), 0.5d) } };
+
+        Assert.Same(state, Scattering.Normalize(state));
     }
 }

@@ -24,6 +24,7 @@ public partial class ScatterItemWindow : Window
     private ScatterIcon _icon;
     private bool _clickThrough = true;
     private bool _closing;
+    private bool _pressed;
 
     public ScatterItemWindow(ScatteredItem item)
     {
@@ -31,6 +32,9 @@ public partial class ScatterItemWindow : Window
 
         Item = item;
         _icon = ScatterIcons.Get(item.Item);
+
+        Width = SizeDips;
+        Height = SizeDips;
 
         InitializeComponent();
         ItemImage.Source = _icon.Bitmap;
@@ -134,11 +138,29 @@ public partial class ScatterItemWindow : Window
         OverlayWindow.SetClickThrough(Handle, enabled);
     }
 
+    // 押下を見ないと、他所で押したボタンをアイテムの上で離しただけで片付けが発火する。
+    // マウスをキャプチャすると外で離した Up まで受けるが、クリックにしたくないので捕まえない
+    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        _pressed = true;
+        e.Handled = true;
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _pressed = false;
+    }
+
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonUp(e);
 
-        if (!_closing)
+        var clicked = _pressed;
+        _pressed = false;
+
+        if (clicked && !_closing)
         {
             Clicked?.Invoke(this, EventArgs.Empty);
         }

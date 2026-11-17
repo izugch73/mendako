@@ -604,10 +604,10 @@ public partial class PetWindow : Window
         }
 
         _hiddenForPresence = shouldHide;
-        _scatter.SetHidden(shouldHide);
 
         if (shouldHide)
         {
+            _scatter.SetHidden(true);
             _frameTimer.Stop();
             Hide();
         }
@@ -616,6 +616,9 @@ public partial class PetWindow : Window
             Show();
             OverlayWindow.ApplyOverlayStyles(_hwnd);
             OverlayWindow.EnsureTopmost(_hwnd);
+
+            // アイテムは本体より後に前面へ出す。先だとメンダコの下になる
+            _scatter.SetHidden(false);
             _lastFrameSeconds = _clock.Elapsed.TotalSeconds;
             _frameTimer.Start();
         }

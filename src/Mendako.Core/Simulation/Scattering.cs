@@ -7,14 +7,12 @@ public static class Scattering
 {
     /// <summary>持ち物のアイテムを 1 個、タスクバーに置く。</summary>
     /// <param name="position">足場の全長に対する中心の位置。範囲外は端に寄せる。</param>
-    /// <param name="id">置いた 1 個の識別子。省略すると新しく振る (テストで固定したいときだけ渡す)。</param>
     public static ScatterOutcome Place(
         MendakoState state,
         ItemId item,
         double position,
         string? monitorId,
-        SimulationConfig? config = null,
-        Guid? id = null)
+        SimulationConfig? config = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         config ??= SimulationConfig.Default;
@@ -33,7 +31,7 @@ public static class Scattering
 
         var placed = new ScatteredItem
         {
-            Id = id ?? Guid.NewGuid(),
+            Id = Guid.NewGuid(),
             Item = item,
             Position = Math.Clamp(double.IsNaN(position) ? 0.5d : position, 0d, 1d),
             MonitorId = monitorId,
@@ -48,6 +46,49 @@ public static class Scattering
         };
 
         return new ScatterOutcome(next, ScatterResult.Placed, placed);
+    }
+
+    /// <summary>
+    /// 読み込んだ保存データの置いてあるアイテムを整える。識別子が空・重複したものは捨て、位置は 0〜1 に丸め、
+    /// 上限を超えた分は持ち物に戻す (持ち物もいっぱいなら捨てる)。手で書き換えた・壊れたデータでも、
+    /// 画面外に置かれたり、同じ識別子のクールダウンを共有したりしないようにする。
+    /// </summary>
+    public static MendakoState Normalize(MendakoState state, SimulationConfig? config = null)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        config ??= SimulationConfig.Default;
+
+        var seen = new HashSet<Guid>();
+        var kept = new List<ScatteredItem>();
+        var items = state.Items.ToList();
+
+        foreach (var scattered in state.ScatteredItems)
+        {
+            if (scattered.Id == Guid.Empty || !seen.Add(scattered.Id))
+            {
+                continue;
+            }
+
+            if (kept.Count >= config.MaxScatteredItems)
+            {
+                if (items.Count < config.MaxInventoryItems)
+                {
+                    items.Add(scattered.Item);
+                }
+
+                continue;
+            }
+
+            var position = Math.Clamp(double.IsNaN(scattered.Position) ? 0.5d : scattered.Position, 0d, 1d);
+            kept.Add(position == scattered.Position ? scattered : scattered with { Position = position });
+        }
+
+        if (kept.Count == state.ScatteredItems.Count && kept.Zip(state.ScatteredItems).All(pair => ReferenceEquals(pair.First, pair.Second)))
+        {
+            return state;
+        }
+
+        return state with { Items = items, ScatteredItems = kept };
     }
 
     /// <summary>置いてあるアイテムを持ち物に戻す。持ち物がいっぱいなら戻せず、置いたままにする。</summary>
@@ -183,16 +224,6 @@ public static class Scattering
         return double.IsNaN(best) ? Math.Clamp(petCentre + (firstSign * distance), min, max) : best;
     }
 
-    private static ScatteredItem? Find(MendakoState state, Guid id)
-    {
-        foreach (var scattered in state.ScatteredItems)
-        {
-            if (scattered.Id == id)
-            {
-                return scattered;
-            }
-        }
-
-        return null;
-    }
+    private static ScatteredItem? Find(MendakoState state, Guid id) =>
+        state.ScatteredItems.FirstOrDefault(s => s.Id == id);
 }

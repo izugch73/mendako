@@ -427,4 +427,82 @@ public class BehaviorScatterTests
         Assert.Equal(EyePose.Surprised, poses[0].Eyes);
         Assert.Contains(poses, p => p.Eyes == EyePose.Happy && p.ShowHeart);
     }
+
+    [Fact]
+    public void 届かないまま時間切れになったらクールダウンの間は近寄り直さない()
+    {
+        var machine = Quiet();
+        var state = Awake();
+        var id = Guid.NewGuid();
+
+        // 位置が変わらない入力を流し続ける (遠くにあって、いつまでも着かない)
+        BehaviorInput Input() => new()
+        {
+            RoomBeforeDots = 1000d,
+            RoomAfterDots = 1000d,
+            Scattered = new[] { new ScatterTarget(id, 100d) },
+        };
+
+        var approached = false;
+        var elapsed = 0d;
+        while (elapsed < 60d && !(approached && machine.CurrentAction != PetAction.Approach))
+        {
+            machine.Advance(Frame, state, Input());
+            elapsed += Frame;
+            approached |= machine.CurrentAction == PetAction.Approach;
+        }
+
+        Assert.True(approached);
+
+        // 時間切れのあと、クールダウンの間は泳ぎ出さない
+        for (var t = 0d; t < BehaviorMachine.ScatterCooldownSeconds - 5d; t += 0.25d)
+        {
+            machine.Advance(0.25d, state, Input());
+            Assert.NotEqual(PetAction.Approach, machine.CurrentAction);
+        }
+    }
+
+    [Fact]
+    public void 見ている途中で割り込まれたら終わったあとにもう一度見てから近寄る()
+    {
+        var machine = Quiet();
+        var state = Awake();
+        var id = Guid.NewGuid();
+
+        BehaviorInput Input() => new()
+        {
+            RoomBeforeDots = 1000d,
+            RoomAfterDots = 1000d,
+            Scattered = new[] { new ScatterTarget(id, 100d) },
+        };
+
+        // 気付いて 0.5 秒ほど見たところで、びっくりが割り込む
+        for (var t = 0d; t < 0.5d; t += Frame)
+        {
+            machine.Advance(Frame, state, Input());
+        }
+
+        Assert.True(machine.Trigger(PetAction.Startle));
+
+        var startledUntil = 0d;
+        while (machine.CurrentAction == PetAction.Startle || startledUntil == 0d)
+        {
+            machine.Advance(Frame, state, Input());
+            startledUntil += Frame;
+        }
+
+        // 終わった直後から 1 秒弱は、まだ見ているだけ。泳ぎ出さない
+        for (var t = 0d; t < 0.9d; t += Frame)
+        {
+            machine.Advance(Frame, state, Input());
+            Assert.NotEqual(PetAction.Approach, machine.CurrentAction);
+        }
+
+        for (var t = 0d; t < 0.5d; t += Frame)
+        {
+            machine.Advance(Frame, state, Input());
+        }
+
+        Assert.Equal(PetAction.Approach, machine.CurrentAction);
+    }
 }

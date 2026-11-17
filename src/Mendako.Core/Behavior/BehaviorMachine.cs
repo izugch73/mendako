@@ -26,7 +26,7 @@ public sealed class BehaviorMachine
     /// 置いてあるアイテムに一度反応したら、同じアイテムへ近寄らない秒数。
     /// 片付けて置き直すと別のアイテムとして数えるので、その間も遊ばせたいときは置き直せばよい。
     /// </summary>
-    public const double ScatterCooldownSeconds = 600d;
+    internal const double ScatterCooldownSeconds = 600d;
 
     /// <summary>食べるしぐさ (<see cref="PetAction.Eat"/>) の長さ。食べられたアイテムは、これが終わるころに消す。</summary>
     public const double EatSeconds = 1.8d;
@@ -149,10 +149,21 @@ public sealed class BehaviorMachine
             var finished = CurrentAction;
             CurrentAction = PetAction.None;
 
-            if (finished == PetAction.Poke && !state.IsAsleep)
+            if (finished == PetAction.Approach)
+            {
+                // 着けないまま時間切れ。休ませないと、同じ Advance のうちに見る間も無く近寄り直す
+                EndApproachWithCooldown(_approachTarget);
+            }
+            else if (finished == PetAction.Poke && !state.IsAsleep)
             {
                 Trigger(PetAction.Startle);
             }
+        }
+
+        // 見ている途中で別の動きに割り込まれたら、見る間は最初からやり直す。飛ばすと終わった途端に泳ぎ出す
+        if (CurrentAction is not (PetAction.None or PetAction.Approach))
+        {
+            _noticedTarget = Guid.Empty;
         }
 
         // カーソルを乗せたら立ち止まる。泳いで逃げられるとクリックできない
@@ -545,7 +556,7 @@ public sealed class BehaviorMachine
         if (_time - _noticedSince >= ScatterNoticeDelaySeconds)
         {
             _approachTarget = target.Id;
-            Trigger(PetAction.Approach, ApproachTimeoutSeconds);
+            Trigger(PetAction.Approach);
         }
 
         return true;
@@ -580,17 +591,10 @@ public sealed class BehaviorMachine
 
     private PetPose ApproachingPose(double delta, MendakoState state, BehaviorInput input)
     {
-        ScatterTarget? found = null;
-        if (input.Scattered is { } scattered)
-        {
-            foreach (var candidate in scattered)
-            {
-                if (candidate.Id == _approachTarget)
-                {
-                    found = candidate;
-                }
-            }
-        }
+        var found = input.Scattered?
+            .Where(candidate => candidate.Id == _approachTarget)
+            .Select(candidate => (ScatterTarget?)candidate)
+            .FirstOrDefault();
 
         var idle = IdlePose(state.Mood);
 
@@ -608,9 +612,7 @@ public sealed class BehaviorMachine
             // 着いたら反応を渡して立ち止まる。同じアイテムへすぐ戻ってこないよう、反応の結果によらず休ませる
             _arrival = target.Id;
             _facing = direction;
-            _scatterCooldownUntil[target.Id] = _time + ScatterCooldownSeconds;
-            PruneCooldowns();
-            EndApproach();
+            EndApproachWithCooldown(target.Id);
             return idle with { GazeDots = input.VerticalRail ? 0 : direction };
         }
 
@@ -618,8 +620,7 @@ public sealed class BehaviorMachine
         if (room <= 0d)
         {
             // 足場の端で体が届かない場所にある。粘ってもその場で止まるだけなので、休ませて諦める
-            _scatterCooldownUntil[target.Id] = _time + ScatterCooldownSeconds;
-            EndApproach();
+            EndApproachWithCooldown(target.Id);
             return idle;
         }
 
@@ -649,17 +650,11 @@ public sealed class BehaviorMachine
         _noticedTarget = Guid.Empty;
     }
 
-    private void PruneCooldowns()
+    /// <summary>近寄りをやめて、同じアイテムへすぐ戻らないよう休ませる。着いた・届かない・時間切れのどれでも同じ。</summary>
+    private void EndApproachWithCooldown(Guid id)
     {
-        if (_scatterCooldownUntil.Count < 16)
-        {
-            return;
-        }
-
-        foreach (var expired in _scatterCooldownUntil.Where(pair => pair.Value <= _time).Select(pair => pair.Key).ToList())
-        {
-            _scatterCooldownUntil.Remove(expired);
-        }
+        _scatterCooldownUntil[id] = _time + ScatterCooldownSeconds;
+        EndApproach();
     }
 
     private double NextGestureInterval() => 8d + (_random.NextDouble() * 14d);
@@ -696,8 +691,7 @@ public sealed class BehaviorMachine
     private static int Priority(PetAction action) => action switch
     {
         PetAction.None => 0,
-        PetAction.Eat or PetAction.Happy or PetAction.Refuse or PetAction.Startle => 2,
-        PetAction.Admire or PetAction.Poke => 2,
+        PetAction.Eat or PetAction.Happy or PetAction.Refuse or PetAction.Startle or PetAction.Admire or PetAction.Poke => 2,
         PetAction.Held or PetAction.Fall or PetAction.Land => 2,
         PetAction.Evolve => 3,
         _ => 1,

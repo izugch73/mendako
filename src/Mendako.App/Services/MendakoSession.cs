@@ -35,7 +35,9 @@ public sealed class MendakoSession : IDisposable
         _config = config ?? SimulationConfig.Default;
         _store = store ?? new JsonFileStore<MendakoState>(AppPaths.StateFile);
 
-        State = _store.Load() ?? MendakoState.CreateNew(_clock.UtcNow);
+        State = _store.Load() is { } loaded
+            ? Scattering.Normalize(loaded, _config)
+            : MendakoState.CreateNew(_clock.UtcNow);
 
         _advanceTimer = new DispatcherTimer { Interval = AdvanceInterval };
         _advanceTimer.Tick += (_, _) => Advance();
